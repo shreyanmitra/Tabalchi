@@ -1,4 +1,4 @@
-# Tabla Syntax Highlighter <img src="https://github.com/user-attachments/assets/0d47f705-74d9-43e4-91b0-a6c8806965ba" width=100/>
+# Tabalchi <img src="https://github.com/user-attachments/assets/0d47f705-74d9-43e4-91b0-a6c8806965ba" width=100/>
 
 
 A parser for Indian classical music, specifically tabla. 
