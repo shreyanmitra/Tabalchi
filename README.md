@@ -26,7 +26,8 @@ taal: Ektaal //12 would work here too
 speed: "60bpm" //optional
 speedClass: Vilambit
 speedExceptions:
-  ... //If certain parts of the bol are faster or slower, can put it here
+  ... //If certain parts of the bol are faster or slower, can put it here in the format {begin-end beat no.: speed}, etc.
+jati: Chatusra //Indicates 4 syllables per beat 
 playingStyle: Lucknow
 display: Bhatkande //Script to use: could be Bhatkande, Paluskar, or None
 }
