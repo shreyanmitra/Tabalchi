@@ -48,6 +48,9 @@ with open("yourBol.tabla", "r") as file:
   write(file, "yourOutputFile.txt/pdf")
 ```
 
+## About the Author
+Shreyan has been learning the tabla for 12+ years at the [Akhil Bharatiya Gandharva Mahavidyalaya Mandal](https://en.wikipedia.org/wiki/Akhil_Bharatiya_Gandharva_Mahavidyalaya_Mandal). He is currently pursuing a Visharad certification.
+
 
 
 
