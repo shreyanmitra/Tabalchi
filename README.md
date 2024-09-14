@@ -9,27 +9,29 @@ Example:
 
 ```javascript
 {
-composition: Kayda
-name: "My Composition" //Optional
+composition: "Kayda",
+name: "My Composition", //Optional
 components:
-  mainTheme:
-    bhari:
+  {mainTheme:
+   {bhari:
       "dha ti ge ne | dha ti dha ge | dhin na ge na\
       tete ge ne | dha ti dha ge | dhin na ge na\
       tete tete | ge na tete | ge na dha ti\
-      dha tete dha | ge ne dha ge | tin na ke na"
-   khali: Infer
+      dha tete dha | ge ne dha ge | tin na ke na",
+   khali: "Infer"
+   }
+  },
  paltas:
-  ... //Include paltas here
- tihai: //Include tihai here
-taal: Ektaal //12 would work here too
-speed: "60bpm" //optional
-speedClass: Vilambit
+  {...}, //Include paltas here
+ tihai: "", //Include tihai here
+taal: "Ektaal", //12 would work here too
+speed: "60bpm", //optional
+speedClass: "Vilambit",
 speedExceptions:
-  ... //If certain parts of the bol are faster or slower, can put it here in the format {begin-end beat no.: speed}, etc.
-jati: Chatusra //Indicates 4 syllables per beat 
-playingStyle: Lucknow
-display: Bhatkande //Script to use: could be Bhatkande, Paluskar, or None
+ { ...}, //If certain parts of the bol are faster or slower, can put it here in the format {begin-end beat no.: speed}, etc.
+jati: "Chatusra", //Indicates 4 syllables per beat
+playingStyle: "Lucknow",
+display: "Bhatkande", //Script to use: could be Bhatkande, Paluskar, or None
 }
 ```
 
