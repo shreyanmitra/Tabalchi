@@ -1,0 +1,8 @@
+@CompositeDefine
+('dha', ['ge', 'na'])
+('dhin', ['ge', 'tin'], ['gran'])
+('dhet', ['ge', 'tet'], ['dhe'])
+('dhere', ['ge', 'tere'])
+('dhete', ['ge', 'tete'])
+('kre', ['kat', 'te'])
+('kran', ['ke', 'ta'])

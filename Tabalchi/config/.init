@@ -1,0 +1,4 @@
+VOCAB = basicVocab.phrases
+COMPOSITE = basicComposites.phrases
+SEQUENCE = basicSequences.phrases
+BHARI_TO_KHALI = basicBhariKhaliMapping.phrases

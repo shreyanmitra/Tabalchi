@@ -1,0 +1,8 @@
+@SequentialDefine
+('terekite', ['tete', 'ki', 'te'], "both")
+('gadigene', ['ga', 'di', 'ge', 'ne'], "both")
+('nagetete', ['na', 'ge', 'tete'], "both")
+('terekite', ['tete', 'ki', 'te'], "both")
+('kitetaka', ['ki', 'tete', 'ka'], "both")
+('dheredhere', ['dhere', 'dhere'], "both")
+('teretere', ['tere', 'tere'], "daiyan")
