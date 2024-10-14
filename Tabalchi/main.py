@@ -4,8 +4,8 @@
 import json #For parsing .tabla files
 from config.initialize import * #For file configs
 from abc import ABC, abstractmethod #For defining abstract classes
-import pygame #For playing midi files
-from mido import * #For manipulating midi files
+from playsound import playsound #For playing sounds
+from pydub import AudioSegment #For merging and joining sounds
 from typing import* #For type hints
 from types import SimpleNamespace #For accessing dictionary field using dot notation
 import os #For moving files
@@ -14,7 +14,6 @@ import warnings #For warnings
 #For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
 #Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
 
-#DONE
 class BeatRange():
     '''
     Class representing a beat range
@@ -28,11 +27,21 @@ class BeatRange():
         self.begin = begin
         self.end = end
 
-    def range(self):
+    def range(self) -> int:
+        '''
+        Returns the number of beats represented by this beat range
+        '''
         return self.end - self.begin
 
     @classmethod
-    def isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int):
+    def isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:
+        '''
+        Returns if a particular beat range convers all beats from 1 to the given total number of beats
+
+        Parameters:
+            ranges(List[BeatRange]): A list of beat ranges
+            totalBeats(int): The total number of beats in the sequence to check the ranges against
+        '''
         ranges = sorted(ranges, lambda range: range.begin)
         for i in range(1, len(ranges)):
             if ranges[i].begin != ranges[i-1].end:
@@ -42,28 +51,36 @@ class BeatRange():
         return True
 
     @classmethod
-    def getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int):
+    def getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:
+        '''
+        Returns the ranges, in sorted order, that fall between a given begin and end beat
+
+        Parameters:
+            ranges(List[BeatRange]): A list of beat ranges to choose from
+            begin(int): The start beat of the desired sequence
+            end(int): The end beat of the desired sequence
+        '''
         subsequence = []
         for i in range(len(ranges)):
             range = ranges[i]
             if range.begin >= begin and range.end <= end:
                 subsequence.append(range)
         return sorted(subsequence)
-#DONE
+
 class Composition(ABC):
     '''
     Abstract class that represents a generic tabla composition.
 
     Required Properties:
-    type(str): The class of composition (Ex. Kayda, Gat, etc.)
-    name(str): The name of the composition
-    components(list): Ordered collection of other components that make up this composition (Ex. Kayda = MainTheme + Paltas + Tihai)
-    taal(Taal): The taal this composition is in (Ex. Teentaal, Pancham Sawadi), given as a Taal object
-    speed(Speed or dict<BeatRange, Speed>): The speed of this composition, given as a Speed object. Can specify specific ranges if speed varies
-    jati(Jati or dict<BeatRange, Speed>): The jati of this composition, given as a Jati object. This is the number of syllables per beat. Can specify specific ranges if jati varies
-    playingStyle(String): The gharana, or style, of playing. As of the current version, this has no immediate effect and is only for information. If you want to make certain bols sound different, you need to record new MIDI files for them.
-    display(Notation): The notation system to use when displaying the composition
-    length(int): The length of the composition
+        type(str): The class of composition (Ex. Kayda, Gat, etc.)
+        name(str): The name of the composition
+        components(list): Ordered collection of other components that make up this composition (Ex. Kayda = MainTheme + Paltas + Tihai)
+        taal(Taal): The taal this composition is in (Ex. Teentaal, Pancham Sawadi), given as a Taal object
+        speed(Speed or dict<BeatRange, Speed>): The speed of this composition, given as a Speed object. Can specify specific ranges if speed varies
+        jati(Jati or dict<BeatRange, Speed>): The jati of this composition, given as a Jati object. This is the number of syllables per beat. Can specify specific ranges if jati varies
+        playingStyle(String): The gharana, or style, of playing. As of the current version, this has no immediate effect and is only for information. If you want to make certain bols sound different, you need to record new MIDI files for them.
+        display(Notation): The notation system to use when displaying the composition
+        length(int): The length of the composition
     '''
     @property
     @abstractmethod
@@ -101,15 +118,15 @@ class Composition(ABC):
     @abstractmethod
     def display(self):
         ...
-#DONE
+
 class ExtensibleComposition(Composition, ABC):
     '''
     An abstract class that inherits from Composition class. It has some additional properties.
 
     Required Properties:
-    mainTheme(MainTheme): A MainTheme object that represents the main theme of the extensible composition, upon which other components are expanded from
-    paltas(list[Palta]): A list of Palta objects that represent variations on the main theme
-    tihai(Tihai): A Tihai object that represents the final component of the extensible composition
+        mainTheme(MainTheme): A MainTheme object that represents the main theme of the extensible composition, upon which other components are expanded from
+        paltas(list[Palta]): A list of Palta objects that represent variations on the main theme
+        tihai(Tihai): A Tihai object that represents the final component of the extensible composition
     '''
     @property
     @abstractmethod
@@ -123,17 +140,20 @@ class ExtensibleComposition(Composition, ABC):
     @abstractmethod
     def tihai(self):
         ...
-#DONE
+
 class PublicComposition(Composition, ABC):
     '''
-    Abstract class that represents a composition that can be made into
+    Abstract class that represents a composition that can be imported from a dot tabla file
     '''
     @classmethod
     @abstractmethod
     def fromdottabla(cls):
         ...
-#DONE
+
 class ComponentComposition(Composition, ABC):
+    '''
+    Abstract class that represents a composition that cannot be imported from a dict
+    '''
     @classmethod
     @abstractmethod
     def fromdict(cls):
@@ -476,13 +496,13 @@ class Theka(FixedSizeComposition):
     pass
 
 class Bol(FixedSizeComposition):
-    pass
 
-#DONE
+
+
 class Fetcher:
-    #Class that only contains the static fetch method
+    #Class that contains several static methods involving fetching sounds and variables
     @classmethod
-    def fetch(cls, id, specifier = None, componentIDs = None):
+    def fetch(cls, id, specifier = None, componentIDs = None) -> Sound:
         '''
         Fetch the Sound object given a phrase identifier, or synthesize it from componentIDs given a specifier
 
@@ -493,6 +513,9 @@ class Fetcher:
 
         Returns:
             newSound (Sound) OR oldSound (Sound): The Sound instance representing the given id
+
+        Throws:
+            ValueError: if invalid specifier is passed for sound synthesis
         '''
         oldSound = Sound.sounds.get(id)
         if oldSound: #If a Sound object with the given identifier exists
@@ -532,12 +555,11 @@ class Fetcher:
     @classmethod
     def addRecording(cls, file):
         '''
-        A method to add a MIDI file recording to the recordings folder. If you have a .mp3 or wav, you can go to https://samplab.com/audio-to-midi
-        Parameters:
+        A method to add an audio file recording to the recordings folder.
             file(str): Path to MIDI file
         '''
         os.rename(file, "recordings/" + os.path.basename(file))
-#DONE
+
 class Sound():
     sounds = {}
     '''
@@ -548,7 +570,7 @@ class Sound():
 
     Parameters:
         id(string): The unique identifier of the soundbite, typically the name of the associated phrase
-        recording(string): The file name of a .mid MIDI file in the recordings/ folder
+        recording(string): The file name of a audio file in the recordings/ folder
     '''
     def __init__(self, id, recording):
         self.id = id #Store the identifier
@@ -559,41 +581,32 @@ class Sound():
         '''
         Plays the sound represented by this Sound object
         '''
-        pygame.mixer.init()
-        pygame.mixer.music.load(self.recording) #Play the MIDI file
-        while pygame.mixer.music.get_busy(): #Wait for music to finish
-            pygame.time.wait(1000)
-        pygame.mixer.quit()
+        playsound(self.recording)
 
     @classmethod
-    def merge(cls, sounds):
+    def merge(cls, sounds) -> str:
         '''
         For composite sounds, play all the sounds simultaneously
 
         Parameters:
-        sounds(list[Sound]): the individual component sounds to play
+            sounds(list[Sound]): the individual component sounds to play
 
         Returns:
-        newRecording(string): A midi file containing the combination requested
+            newRecording(string): An audio file containing the combination requested
         '''
-        files = []
-        names = []
-        for sound in sounds:
-            files.append(MidiFile(sound.recording))
-            names.append(sound.id)
-
-        merged_file = MidiFile()
-        merged_file.ticks_per_beat = files[0].ticks_per_beat
-        merged_file.tracks = files[0].tracks
-        for i in range(1, len(files)):
-            merged_file.tracks += files[i].tracks
-        name = "+".join(names)
-        merged_mid.save("recordings/" + names + '.mid')
-        return name
+        assert len(sounds) > 1, "More than 1 sound must be provided to merge"
+        mergedSound = AudioSegment.from_file(sounds[0].recording)
+        fileName = sounds[0].id
+        for i in range(1, len(sounds)):
+            mergedSound = mergedSound.overlay(AudioSegment.from_file(sounds[i].recording), position = 0)
+            fileName += "+" + sounds[i].id
+        fileName = "recordings/" + fileName + ".m4a"
+        handler = mergedSound.export(fileName, format = "ipod")
+        return fileName
 
 
     @classmethod
-    def join(cls, sounds):
+    def join(cls, sounds) -> str:
         '''
         For sequential sounds, play all the sounds one after the other, in the order given
 
@@ -601,53 +614,35 @@ class Sound():
         sounds(list[Sound]): the individual component sounds to play
 
         Returns:
-        newRecording(string): A midi file containing the combination requested
+        newRecording(string): An audio file containing the combination requested
         '''
-        files = []
-        names = []
-        times = []
-        count = 0
-        for sound in sounds:
-            file = MidiFile(sound.recording)
-            files.append(file)
-            names.append(sound.id)
-            count += file.length
-            times.append(count)
+        assert len(sounds) > 1, "More than 1 sound must be provided to join"
+        mergedSound = AudioSegment.from_file(sounds[0].recording)
+        fileName = sounds[0].id
+        for i in range(1, len(sounds)):
+            mergedSound = mergedSound + AudioSegment.from_file(sounds[i].recording)
+            fileName += sounds[i].id
+        fileName = "recordings/" + fileName + ".m4a"
+        handler = mergedSound.export(fileName, format = "ipod")
+        return fileName
 
-
-        merged_file = MidiFile()
-        merged_file.ticks_per_beat = files[0].ticks_per_beat
-        merged_file.tracks = files[0].tracks
-        for i in range(1, len(files)):
-            offsetTracks = []
-            for track in files[i].tracks:
-                offsetTrack = []
-                for msg in track:
-                    msg.time += int(second2tick(times[i]))
-                    offsetTrack.append(msg)
-                offsetTracks.append(offsetTrack)
-            merged_file.tracks += offsetTracks
-        name = "".join(names)
-        merged_mid.save("recordings/" + names + '.mid')
-        return name
-#DONE
 class Phrase():
     registeredPhrases = {} #The phrases that have been registered so far
     '''
     Class that represents a phrase on the tabla
 
     Parameters:
-    mainID(string): The name of the phrase
-    syllables(int): Number of syllables this phrase is
-    position(string): Whether this phrase is played on the baiyan, daiyan, or both
-    info(string): Information about how to play the phrase
-    aliases(string): Other names for this phrase in compositions
-    soundBite(Sound or string): Either "Fetch" is sound has been preregistered, or the path to a MIDI .mid file, or a Sound object
-    register(boolean): Whether this phrase should be registered
+        mainID(string): The name of the phrase
+        syllables(int): Number of syllables this phrase is
+        position(string): Whether this phrase is played on the baiyan, daiyan, or both
+        info(string): Information about how to play the phrase
+        aliases(string): Other names for this phrase in compositions
+        soundBite(Sound or string): Either "Fetch" if sound has been preregistered, or the path to an audio file, or a Sound object
+        register(boolean): Whether this phrase should be registered
     '''
     def __init__(self, mainID, syllables = 1, position = 'baiyan', info = 'No info provided', aliases = None, soundBite = "Fetch", register = True):
         if not isinstance(soundBite, Sounds) and soundBite != "Fetch":
-            soundBite = Sound(mainID, soundBite) #We have a path to a MIDI file and need to convert it to a Sound object. The MIDI file should be in the recordings folder
+            soundBite = Sound(mainID, soundBite) #We have a path to an audio file and need to convert it to a Sound object. The audio file should be in the recordings folder
         mainID = mainID.lower() #Lowercase all letters for consistency
         #Below, keep track of all possible names of the phrase
         self.ids = [mainID]
@@ -676,7 +671,7 @@ class CompositionGenerator(ABC):
     pass
 
 class AudioToBolConvertor():
-    pass
+    
 
 
 class BolParser():

@@ -1,6 +1,6 @@
 # Meaning of Symbols:
 
-*This is the symbol specification for the default provided BolParser class. You can create your own parser, but it must: (1) inherit BolParser and (2) implement a new Symbols.md file if it changes the maning of any of the symbols / adds symbols / removes symbols.*
+*This is the symbol specification for the default provided BolParser class. You can create your own parser, but it must: (1) inherit BolParser and (2) implement a new Symbols.md file if it changes the naming of any of the symbols / adds symbols / removes symbols.*
 
 
 <table>
