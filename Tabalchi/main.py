@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
 from pydub import AudioSegment #For merging and joining sounds
 import audio_effects as ae # For slowing down sounds
+import acoustid #For fingerprinting audio files
+import chromaprint #For decoding audio fingerprints
 from typing import* #For type hints
 from types import SimpleNamespace #For accessing dictionary field using dot notation
 import os #For moving files
@@ -120,7 +122,7 @@ class Composition(ABC):
     @property
     @abstractmethod
     def display(self):
-        ...
+        raise NotImplementedError("Conversion to pdf has not been implemented yet")
 
 class ExtensibleComposition(Composition, ABC):
     '''
@@ -474,8 +476,16 @@ class Bhari(FixedSizeComposition):
 class Khali(FixedSizeComposition):
     pass
 
-class Numeric():
-    pass
+class Numeric(ABC):
+    @property
+    @abstractmethod
+    def name(self):
+        ...
+
+    @property
+    @abstractmethod
+    def number(self):
+        ...
 
 class Taal(FixedComposition, Numeric):
     pass
@@ -505,10 +515,6 @@ class Bol(FixedSizeComposition):
         self._name = ""
         self._components = [string]
         self._taal = ""
-
-    @classmethod
-    def fromstr(cls, string:str):
-        return Bol()
 
 
 
@@ -733,16 +739,50 @@ class AudioToBolConvertor():
         recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases}
         bolString = ""
         marker = 0
-        while (marker < sound.duration_seconds):
-            add = getMostSimilarSound(snippet = sound[i: i + 0.25], from = recordings)
-            marker += Phrase.registeredPhrases[add].syllables * 0.25
+        while (marker < sound.duration_seconds * 1000):
+            add = getMostSimilarSound(snippet = sound[marker: marker + 250], from = recordings)
+            marker += Phrase.registeredPhrases[add].syllables * 250
             bolString += add
         return bolString
 
     @classmethod
-    def getMostSimilarSound(cls, snippet:, from:Dict[str, str]) -> str:
+    def getMostSimilarSound(cls, snippet, from:Dict[str, str]) -> str:
+        '''
+        A method that gets the most similar sounding bol to a given audio
 
+        Parameters:
+            snippet: The audio snippet to identify/transcribe
+            from(dict<str, str>): The known vocabulary to choose from
+        '''
+        snippet.export("snippetTemp", format = "m4a")
+        _, encoded = acoustid.fingerprint_file("snippetTemp")
+        fingerprint, _ = chromaprint.decode_fingerprint(
+            encoded
+        )
+        references = {}
+        for key, val in from.items():
+            _, e = acoustid.fingerprint_file(key)
+            f, _ = chromaprint.decode_fingerprint(
+                e
+            )
+            references[val] = f
 
+        from operator import xor
+        maxSimilarity = 0
+        mostSimilarPhrase = None
+        for phrase, print in references.items():
+            max_hamming_weight = 32 * min(len(fingerprint), len(print))
+            hamming_weight = sum(
+                sum(
+                    c == "1"
+                    for c in bin(xor(fingerprint[i], print[i]))
+                )
+                for i in range(min(len(fingerprint), len(print)))
+            )
+            if (hamming_weight / max_hamming_weight) > maxSimilarity:
+                maxSimilarity = hamming_weight / max_hamming_weight
+                mostSimilarPhrase = phrase
+        return mostSimilarPhrase
 
 
 
