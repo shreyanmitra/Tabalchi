@@ -87,6 +87,24 @@ class Composition(ABC):
         display(Notation): The notation system to use when displaying the composition
         length(int): The length of the composition
     '''
+    def __init__(self, type:str, name:str, components:List[Composition], taal:Taal, speed:Union[Speed, Dict[BeatRange, Speed]], jati:Union[Jati, Dict[BeatRange, Jati]], playingStyle:str, display:Notation):
+        self._type = type
+        self._name = name
+        self._taal = taal
+        self._speed = speed
+        self._jati = jati
+        self._playingStyle = playingStyle
+        self._display = display
+        self._bol = ""
+        self._length = sum(c._length for c in components)
+        for component in components:
+            assert components._length % taal._number == 0, "One or more components does not match the number of beats specified by the taal."
+            self._bol += components._bol
+        if isinstance(speed, dict):
+            assert BeatRange.isContiguousSequence(list(speed.keys()), self._length), "Beat range specified does not cover the entire composition's length."
+        if isinstance(jati, dict):
+            assert BeatRange.isContiguousSequence(list(jati.keys()), self._length), "Beat range specified does not cover the entire composition's length."
+
     @property
     @abstractmethod
     def type(self):
@@ -94,6 +112,10 @@ class Composition(ABC):
     @property
     @abstractmethod
     def length(self):
+        ...
+    @property
+    @abstractmethod
+    def bol(self):
         ...
     @property
     @abstractmethod
@@ -133,6 +155,15 @@ class ExtensibleComposition(Composition, ABC):
         paltas(list[Palta]): A list of Palta objects that represent variations on the main theme
         tihai(Tihai): A Tihai object that represents the final component of the extensible composition
     '''
+    def __init__(self, type, name, mainTheme:MainTheme, paltas:List[Palta], tihai:Tihai, taal, speed, jati, playingStyle, display):
+        self._mainTheme = mainTheme
+        self._paltas = paltas
+        self._tihai = tihai
+        components = [mainTheme]
+        components.extend(paltas)
+        components.append(tihai)
+        super().__init__(type, name, components, taal, speed, jati, playingStyle, display)
+
     @property
     @abstractmethod
     def mainTheme(self):
@@ -171,41 +202,26 @@ class Kayda(ExtensibleComposition, PublicComposition):
     Parameters:
         See properties of Composition and ExtensibleComposition
     '''
-    def __init__(self, type:str, name:str, mainTheme:MainTheme, paltas:List[Palta], tihai:Tihai, taal:Taal, speed:Union[Speed, Dict[BeatRange, Speed]], jati:Union[Jati, Dict[BeatRange, Jati]], playingStyle:str, display:Notation):
-        assert type == "Kayda", "Attempted to initialize " + type + " as Kayda"
-        self._type = type
-        self._name = name
-        assert mainTheme._length % taal.beats == 0, "Provied main theme is not compatible with provided taal. Did you miss a | somewhere?"
-        assert all(palta._length % taal.beats == 0 for palta in paltas), "Provied paltas are not compatible with provided taal. Did you miss a | somewhere?"
-        assert tihai.length % taal.beats == 0, "Provied tihai is not compatible with provided taal. Did you miss a | somewhere?"
-        self._mainTheme = mainTheme
-        self._paltas = paltas
-        self._tihai = tihai
-        self._length = mainTheme._length + sum(palta._length for palta in paltas) + tihai._length
-        self._taal = taal
-        if isinstance(speed, dict):
-            assert BeatRange.isContiguousSequence(list(speed.keys()), self._length), "Beat range specified does not cover the entire composition's length."
-        self._speed = speed
-        if isinstance(jati, dict):
-            assert BeatRange.isContiguousSequence(list(jati.keys()), self._length), "Beat range specified does not cover the entire composition's length."
-        self._jati = jati
-        self._playingStyle = playingStyle
-        self._display = display
-        self._components = [mainTheme]
-        self._components.extend(self._paltas)
-        self._components.append(self._tihai)
-        self._bol = mainTheme._bol
-        for palta in self._paltas:
-            self._bol += "| " + palta._bol
-        self._bol += self._tihai._bol
 
     @classmethod
     def fromdottabla(cls, file):
         data = SimpleNamespace(**json.loads(file))
-        mainTheme = MainTheme.fromdict(dict(data.components.mainTheme, speed = BeatRange.getSubsequence(self._speed, 1, self._mainTheme._length), jati = BeatRange.getSubsequence(self._jati, 1, self._mainTheme._length)))
+        assert data.composition == "Kayda", "Tried to initialize a " + data.composition + " as a Kayda."
+        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
+        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
+        mainTheme = MainTheme.fromdict(data.components.mainTheme)
+        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
+        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
         paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
+        currentStop = mainTheme._length
+        for palta in paltas:
+            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
+            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
+            currentStop += palta._length
         tihai = Tihai.fromdict(data.components.tihai)
-        return Kayda(data.composition, data.name, MainTheme.fromdict(data.components.mainTheme), [Palta.fromdict(palta) for palta in data.components.paltas], Tihai.fromdict(data.components.tihai), Taal(data.taal), Speed(data.speed) if not isinstance(data.speed, dict) else {BeatRange(key): Speed(val) for key, val in data.speed}, Jati(data.jati) if not isinstance(data.jati, dict) else {BeatRange(key): Jati(val) for key, val in data.jati}, data.playingStyle, Notation(data.display))
+        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
+        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
+        return Kayda(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
 
     def type(self):
         return self._type
@@ -488,7 +504,9 @@ class Numeric(ABC):
         ...
 
 class Taal(FixedComposition, Numeric):
-    pass
+
+    def __init__(self, id:Union[str, int], theka = None):
+
 
 class Jati(Numeric):
     pass
@@ -507,14 +525,6 @@ class Paluskar(Notation):
 
 class Theka(FixedSizeComposition):
     pass
-
-class Bol(FixedSizeComposition):
-    def __init__(self, string:str):
-        self._type = "Bol"
-        self._length = len(string.split("|")) + 1
-        self._name = ""
-        self._components = [string]
-        self._taal = ""
 
 
 
@@ -790,6 +800,10 @@ class BolParser():
     '''
     Class that parses a .tabla file and converts it to a concise, playable form
     '''
+    BEAT_DIVIDER = "|"
+    PHRASE_SPLITTER = "-"
+    PHRASE_JOINER_OPEN = "("
+    PHRASE_JOINER_OPEN = ")"
     def __init__(self):
         #Register a set of predetermined starter phases. Can be edited by modifying the config/ files
         self.initObject = Initializer()
@@ -869,6 +883,14 @@ class BolParser():
 
     def parse(self, file):
         assert ".tabla" in file, "Please pass a valid .tabla file"
+
+    def getSymbolRules(self):
+        from rich.console import Console
+        from rich.markdown import Markdown
+        console = Console()
+        with open('Symbols.md') as f:
+            md = Markdown(f.read())
+            console.print(md)
 
 
     def convertBhariToKhali(self, bhari):
