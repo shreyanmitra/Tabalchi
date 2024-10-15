@@ -6,10 +6,13 @@ from config.initialize import * #For file configs
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
 from pydub import AudioSegment #For merging and joining sounds
+import audio_effects as ae # For slowing down sounds
 from typing import* #For type hints
 from types import SimpleNamespace #For accessing dictionary field using dot notation
 import os #For moving files
 import warnings #For warnings
+from transformers import pipeline # For composition generation
+import torch #For model inference
 
 #For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
 #Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
@@ -496,6 +499,16 @@ class Theka(FixedSizeComposition):
     pass
 
 class Bol(FixedSizeComposition):
+    def __init__(self, string:str):
+        self._type = "Bol"
+        self._length = len(string.split("|")) + 1
+        self._name = ""
+        self._components = [string]
+        self._taal = ""
+
+    @classmethod
+    def fromstr(cls, string:str):
+        return Bol()
 
 
 
@@ -570,7 +583,7 @@ class Sound():
 
     Parameters:
         id(string): The unique identifier of the soundbite, typically the name of the associated phrase
-        recording(string): The file name of a audio file in the recordings/ folder
+        recording(string): The file name of a audio file in the recordings/ folder. The reocrding must be 0.25 second per syllable, i.e. equivalent to playing Chatusra Jati at 60 bpm
     '''
     def __init__(self, id, recording):
         self.id = id #Store the identifier
@@ -665,13 +678,72 @@ class Phrase():
     def play(self):
         self.soundBite.play() #Use the Sound instance's play method to play the phrase
 
+class CompositionGenerator():
+    #Class that provides a static method to generate a composition
+    @classmethod
+    def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token: str):
+        '''
+        A method that generates a composition given parameters using the Llama model available on HuggingFace
 
-
-class CompositionGenerator(ABC):
-    pass
+        Parameters:
+            type(str): The type of composition to generate. Ex. Kayda, Palta, etc.
+            taal(Union[str, int]): The taal of the composition. Ex. Teentaal or 16, Jhaptaal or 10, etc.
+            speedClass(str): The speed class of the composition. Ex. Vilambit, Madhya, Drut
+            jati(Union[str, int]): The jati of the composition, or the number of syllables per beat. Ex. Chatusra or 4, Tisra or 3
+            school(str): The style of playing. Ex. Lucknow, Delhi, Ajrada, Punjabi, etc.
+            token(str): The HuggingFace token for the user's access to Llama.
+        '''
+        warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
+        warnings.warn("Execution time might be excessive depending on your hardware.")
+        phraseInfo = "The following phrases are defined by the user on the tabla, along with a description of how to play them: \n" + "\n".join([key + "." + val.description for key, val in Phrase.registeredPhrases.items()])
+        mainPrompt = "Using the above phrases only, compose a " + type + " in taal with name/beats " + taal + " and speed class " + speedClass + ". The composition should be in jati with name/syllables per beat " + jati + " and in the " + school + " style of playing. Components of the composition should be marked appropriately."
+        symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla", "r").read() + "\n A phrase can span more than one beat - in that case use a '-'' symbol right after the corresponding '|' and before the continuation of the phrase in the next beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
+        end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
+        prompt = phraseInfo + mainPrompt + symbolPrompt + end
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        pipe = pipeline("text-generation", model="meta-llama/Meta-Llama-3-70B-Instruct", token = token, torch_dtype=torch.float16, device_map="auto")
+        return pipe(messages, do_sample = True, num_return_sequences = 1, eos_token_id = pipe.tokenizer.eos_token_id, return_full_text = False)[0]['generated_text']
 
 class AudioToBolConvertor():
-    
+    #Class that provides a static method to transcribe a bol given the recording of a composition
+    @classmethod
+    def convert(cls, recording:str, speed:int, jati:int) -> str:
+        '''
+        A method that generates the bol given an audio recording
+
+        Parameters:
+            recording(str): The filename of the audio file
+            speed(int): The speed, in beats per minute, in which the bol in the audio file is being played
+            jati(int): The number of syllables per beat in the bol in the audio file
+
+        Returns:
+            bolString(str): THe transcription of the audio
+        '''
+        warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
+        currentSyllableDuration = 60.0/(speed*jati)
+        desiredSyllableDuration = 0.25
+        sound = AudioSegment.from_file(recording)
+        if currentSyllableDuration > desiredSyllableDuration:
+            sound = sound.speedup(currentSyllableDuration / desiredSyllableDuration)
+        elif currentSyllableDuration < desired SyllableDuration:
+            sound = ae.speed_down(sound, currentSyllableDuration / desiredSyllableDuration)
+        #Now, parse the audio for every 0.25 second snippet, comparing it with known recordings
+        recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases}
+        bolString = ""
+        marker = 0
+        while (marker < sound.duration_seconds):
+            add = getMostSimilarSound(snippet = sound[i: i + 0.25], from = recordings)
+            marker += Phrase.registeredPhrases[add].syllables * 0.25
+            bolString += add
+        return bolString
+
+    @classmethod
+    def getMostSimilarSound(cls, snippet:, from:Dict[str, str]) -> str:
+
+
+
 
 
 class BolParser():
