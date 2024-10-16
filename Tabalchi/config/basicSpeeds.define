@@ -1,0 +1,4 @@
+@NumDefine[TYPE = "Speed", ARG = x]
+(x<=60, "Vilambit")
+(x>60 and x<=120, "Madhya")
+(x>120, "Drut")

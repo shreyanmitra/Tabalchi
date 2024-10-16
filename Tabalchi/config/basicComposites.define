@@ -1,4 +1,4 @@
-@CompositeDefine
+@VocabDefine[TYPE = "Composite"]
 ('dha', ['ge', 'na'])
 ('dhin', ['ge', 'tin'], ['gran'])
 ('dhet', ['ge', 'tet'], ['dhe'])

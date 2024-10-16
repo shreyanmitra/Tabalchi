@@ -1,4 +1,7 @@
-VOCAB = basicVocab.phrases
-COMPOSITE = basicComposites.phrases
-SEQUENCE = basicSequences.phrases
-BHARI_TO_KHALI = basicBhariKhaliMapping.phrases
+VOCAB = basicVocab.define
+COMPOSITE = basicComposites.define
+SEQUENCE = basicSequences.define
+BHARI_TO_KHALI = basicBhariKhaliMapping.define
+TAAL = basicTaals.define
+JATI = basicJatis.define
+SPEED = basicSpeeds.define

@@ -51,7 +51,7 @@ class BeatRange():
         for i in range(1, len(ranges)):
             if ranges[i].begin != ranges[i-1].end:
                 return False
-        if(ranges[-1].end != totalBeats or ranges[0].begin != 1):
+        if(ranges[-1].end < totalBeats or ranges[0].begin != 1):
             return False
         return True
 
@@ -70,6 +70,12 @@ class BeatRange():
             range = ranges[i]
             if range.begin >= begin and range.end <= end:
                 subsequence.append(range)
+            elif range.begin >= begin and range.end > end:
+                subsequence.append(BeatRange(range.begin, end))
+            elif range.begin < begin and range.end <= end:
+                subsequence.append(BeatRange(begin, range.end))
+            else:
+                subsequence.append(BeatRange(begin, end))
         return sorted(subsequence)
 
 class Composition(ABC):
@@ -259,41 +265,35 @@ class Kayda(ExtensibleComposition, PublicComposition):
     def display(self):
         return self._display
 
-class Rela(ExtensibleComposition):
+class Rela(ExtensibleComposition, PublicComposition):
     '''
     A class that represents a Rela.
 
     Parameters:
         See properties of Composition and ExtensibleComposition
     '''
-    def __init__(self, type:str, name:str, mainTheme:MainTheme, paltas:List[Palta], tihai:Tihai, taal:Taal, speed:Union[Speed, Dict[BeatRange, Speed]], jati:Union[Jati, Dict[BeatRange, Jati]], playingStyle:str, display:Notation):
-        assert type == "Rela", "Attempted to initialize " + type + " as Rela"
-        self._type = type
-        self._name = name
-        assert mainTheme._length % taal.beats == 0, "Provied main theme is not compatible with provided taal. Did you miss a | somewhere?"
-        assert all(palta._length % taal.beats == 0 for palta in paltas), "Provied paltas are not compatible with provided taal. Did you miss a | somewhere?"
-        assert tihai.length % taal.beats == 0, "Provied tihai is not compatible with provided taal. Did you miss a | somewhere?"
-        self._mainTheme = mainTheme
-        self._paltas = paltas
-        self._tihai = tihai
-        self._length = mainTheme._length + sum(palta._length for palta in paltas) + tihai._length
-        self._taal = taal
-        if isinstance(speed, dict):
-            assert all(val.bpm > 120 for val in speed.values()), "Relas must have speeds greater than 120bpm (Madhya or Drut Laya)"
-        else:
-            assert speed.bpm > 120, "Relas must have speeds greater than 120bpm (Madhya or Drut Laya)"
-        self._speed = speed
-        self._jati = jati
-        self._playingStyle = playingStyle
-        self._display = display
-        self._components = [mainTheme]
-        self._components.extend(self._paltas)
-        self._components.append(self._tihai)
 
     @classmethod
     def fromdottabla(cls, file):
         data = SimpleNamespace(**json.loads(file))
-        return Rela(data.composition, data.name, MainTheme.fromdict(data.components.mainTheme), [Palta.fromdict(palta) for palta in data.components.paltas], Tihai.fromdict(data.components.tihai), Taal(data.taal), Speed(data.speed) if not isinstance(data.speed, dict) else {BeatRange(key): Speed(val) for key, val in data.speed}, Jati(data.jati) if not isinstance(data.jati, dict) else {BeatRange(key): Jati(val) for key, val in data.jati}, data.playingStyle, Notation(data.display))
+        assert data.composition == "Rela", "Tried to initialize a " + data.composition + " as a Rela."
+        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
+        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
+        if (isinstance(data.speed, Speed) and data.speed._number < 120) or (any([dat.speed._number < 120 for dat in data.speed.values()])):
+            warnings.warn("At least part of this composition is played at slower than 120 bpm. Relas generally tend to be played in the Madhya and Drut Laya. Are you sure that you have provided the right speed information?")
+        mainTheme = MainTheme.fromdict(data.components.mainTheme)
+        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
+        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
+        paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
+        currentStop = mainTheme._length
+        for palta in paltas:
+            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
+            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
+            currentStop += palta._length
+        tihai = Tihai.fromdict(data.components.tihai)
+        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
+        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
+        return Rela(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
 
     def type(self):
         return self._type
@@ -331,37 +331,41 @@ class Rela(ExtensibleComposition):
     def display(self):
         return self._display
 
-class Peshkar(ExtensibleComposition):
+class Peshkar(ExtensibleComposition, PublicComposition):
     '''
-    A class that represents a Rela.
+    A class that represents a Peshkar.
 
     Parameters:
         See properties of Composition and ExtensibleComposition
     '''
-    def __init__(self, type:str, name:str, mainTheme:MainTheme, paltas:List[Palta], tihai:Tihai, taal:Taal, speed:Speed, jati:Jati, playingStyle:str, display:Notation):
-        self._type = type
-        self._name = name
-        self._mainTheme = mainTheme
-        self._paltas = paltas
-        self._tihai = tihai
-        self._taal = taal
-        assert speed.bpm < 120, "Peshkar speed should be less than 120 bpm (in Vilambit Laya)"
-        self._speed = speed
-        self._jati = jati
-        self._playingStyle = playingStyle
-        self._display = display
-        self._components = [mainTheme]
-        self._components.extend(self._paltas)
-        self._components.append(self._tihai)
 
     @classmethod
     def fromdottabla(cls, file):
         data = SimpleNamespace(**json.loads(file))
-        return Peshkar(data.composition, data.name, MainTheme.fromdict(data.components.mainTheme), [Palta.fromdict(palta) for palta in data.components.paltas], Tihai.fromdict(data.components.tihai), Taal(data.taal), Speed(data.speed) if not isinstance(data.speed, dict) else {BeatRange(key): Speed(val) for key, val in data.speed}, Jati(data.jati) if not isinstance(data.jati, dict) else {BeatRange(key): Jati(val) for key, val in data.jati}, data.playingStyle, Notation(data.display))
-
+        assert data.composition == "Rela", "Tried to initialize a " + data.composition + " as a Rela."
+        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
+        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
+        if (isinstance(data.speed, Speed) and data.speed._number > 120) or (any([dat.speed._number > 120 for dat in data.speed.values()])):
+            warnings.warn("At least part of this composition is played at faster than 120 bpm. Peshkars generally tend to be played in the Vilambit and Madhya Layas. Are you sure that you have provided the right speed information?")
+        mainTheme = MainTheme.fromdict(data.components.mainTheme)
+        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
+        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
+        paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
+        currentStop = mainTheme._length
+        for palta in paltas:
+            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
+            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
+            currentStop += palta._length
+        tihai = Tihai.fromdict(data.components.tihai)
+        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
+        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
+        return Peshkar(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
 
     def type(self):
         return self._type
+
+    def length(self):
+        return self._length
 
     def mainTheme(self):
         return self._mainTheme
@@ -393,7 +397,7 @@ class Peshkar(ExtensibleComposition):
     def display(self):
         return self._display
 
-class Uthaan(ExtensibleComposition):
+class Uthaan(FixedSizeComposition):
     pass
 
 class GatKayda(ExtensibleComposition):
