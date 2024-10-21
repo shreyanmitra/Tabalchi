@@ -6,7 +6,7 @@ from jsonschema import validate #For checking .tabla files for validity
 from config.initialize import * #For file configs
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
-from pydub.playback import play as pydubplay#Also for playing sounds
+from pydub.playback import play as pydubplay #Also for playing sounds
 from pydub import AudioSegment #For merging and joining sounds
 import audio_effects as ae # For slowing down sounds
 import acoustid #For fingerprinting audio files
@@ -14,11 +14,13 @@ import chromaprint #For decoding audio fingerprints
 from typing import* #For type hints
 from types import SimpleNamespace #For accessing dictionary field using dot notation
 import os #For moving files
+from pathlib import Path #Also for moving files
 import warnings #For warnings
 from transformers import pipeline # For composition generation
 import torch #For model inference
 import random #For generating random speed if only speed class is provided
 from collections import OrderedDict #For representing an ordered mapping of phrases to actual number of syllables taken for each phrase
+import fsspec #For downloading recordings folder from Github
 
 #A class representing an interval of beats
 class BeatRange():
@@ -651,6 +653,12 @@ class BolParser():
     </table>
     '''
 
+    #Download recordings folder if it does not exist already
+    destination = Path.cwd() / "recordings"
+    destination.mkdir(exist_ok=True, parents=True)
+    fs = fsspec.filesystem("github", org="shreyanmitra", repo="Tabalchi")
+    fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
+
     #Register bhari-khali mappings, basic vocab, composite phrases, compositions, jatis, sequences, speeds, and taals
     vocabInitializer = [('ge', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi', ['ga', 'ghet', 'gat'], "Fetch", True),
     ('ke', 1, 'baiyan', 'With a flat palm, lift the front fingers and lay them down again on the maidan above the shyahi', ['ki', 'ka'], "Fetch", True),
@@ -812,31 +820,82 @@ class BolParser():
     for element in jatiInitializer:
         Jati(**element)
 
-    kaydaSchema = {}
+    expansionarySchema = {
+        "type": "object",
+        "properties": {
+            "mainTheme": {
+                "type": "object",
+                "properties":{
+                    "bhari": {"type": "string"},
+                    "khali": {"type": "string"},
+                },
+            },
+            "paltas":{
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties":{
+                        "bhari": {"type": "string"},
+                        "khali": {"type": "string"},
+                    },
+                },
+            },
+            "tihai": {"type": "string"},
+        },
+        "required": ["mainTheme", "paltas", "tihai"]
+    }
 
-    compositionsInitializer = [("Kayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
-    ("Rela", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Madhya' or speed == 'Drut')
-    ("Peshkar", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
-    ("GatKayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], True)
-    ("LadiKayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], True)
-    ("Gat", [content], True)
-    ("Tukda", [content], True)
-    ("GatTukda", [content], True)
-    ("Chakradar", [content.body, content.tihai], True, "x3")
-    ("FarmaisiChakradar", [content.body, content.tihai.tihai], "Maybe", "x3")
-    ("KamaaliChakradar", [content.body, content.tihai.tihai], "Maybe", "x3")
-    ("Paran", [content], True)
-    ("Aamad", [content], True)
-    ("Chalan", [content], True)
-    ("GatParan", [content], True)
-    ("Kissm", [content], True)
-    ("Laggi", [content], "Maybe")
-    ("Mohra")
-    ("Mukhda")
-    ("Rou")
-    ("Tihai")
-    ("Bedam Tihai")
-    ("Damdaar Tihai")]
+    fixedSchema = {
+        "type": "object",
+        "properties": {
+            "content": {"type": "string"},
+            "tihai": {"type": "string"},
+        },
+        "required": ["content"],
+    }
+
+    chakradarSchema = {
+        "type": "object",
+        "properties": {
+            "content": {"type": "string"},
+            "tihai": {"type": "string"},
+        },
+        "required": ["content", "tihai"],
+    }
+
+    tihaiSchema = {
+        "type": "object",
+        "properties": {
+            "content": {"type": "string"},
+        },
+        "required": ["content"],
+    }
+
+
+
+    compositionsInitializer = [("Kayda", expansionarySchema)
+    ("Rela", expansionarySchema)
+    ("Peshkar", expansionarySchema)
+    ("GatKayda", expansionarySchema)
+    ("LadiKayda", expansionarySchema)
+    ("Gat", fixedSchema)
+    ("Tukda", fixedSchema)
+    ("GatTukda", fixedSchema)
+    ("Chakradar", fixedSchema)
+    ("FarmaisiChakradar", chakradarSchema)
+    ("KamaaliChakradar", chakradarSchema)
+    ("Paran", fixedSchema)
+    ("Aamad", fixedSchema)
+    ("Chalan", fixedSchema)
+    ("GatParan", fixedSchema)
+    ("Kissm", fixedSchema)
+    ("Laggi", fixedSchema)
+    ("Mohra", fixedSchema)
+    ("Mukhda", fixedSchema)
+    ("Rou", fixedSchema)
+    ("Tihai", tihaiSchema)
+    ("Bedam Tihai", tihaiSchema)
+    ("Damdaar Tihai", tihaiSchema)]
 
     for element in compositionsInitializer:
         CompositionType(**element)
