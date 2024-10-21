@@ -36,6 +36,13 @@ class BeatRange():
         self.begin = begin
         self.end = end
 
+    @classmethod
+    def fromString(self, spec:str) -> BeatRange: #In the format num1-num2 (no spaces allowed)
+            numbers = spec.split("-")
+            num1 = int(numbers[0])
+            num2 = int(numbers[1])
+            return BeatRange(num1, num2)
+
     def range(self) -> int:
         '''
         Returns the number of beats represented by this beat range
@@ -94,11 +101,13 @@ class CompositionType():
         name(str): The name of the composition type. Ex. Kayda, Rela, etc.
         schema(dict): The structure of the components field of the .tabla file
         validityCheck(Callable[[Bol],[bool]]): A function that returns whether a given Bol is of the composition type being considered
+        assembler(Callable[[SimpleNamespace], [list[str]]]): Gives instructions on how to put together the disjointed components of the composition
         register(bool): Whether to register the composition type (i.e. to save it for future use). By default, True
     '''
-    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], register:bool = True):
+    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):
         self.name = name
         self.schema = schema
+        self.assembler = assembler
         def preValidityCheck(bol:dict) -> bool:
             try:
                 validate(instance = bol, schema = schema)
@@ -136,9 +145,7 @@ class Taal(Numeric):
         self.beats = beats
         self.taali = taali
         self.khali = khali
-        if (not name and theka) or (theka and not name):
-            raise ValueError("Must specify both name and theka or none.")
-        elif not theka and not name:
+        if not name:
             self.id = str(beats)
         else:
             self.id = name
@@ -220,6 +227,8 @@ class Speed(Numeric):
 
 
 class Notation(ABC):
+
+    VALID_NOTATIONS = ["Bhatkande", "Paluskar"] #No registered here because there can only be two types of notation
 
     @classmethod
     @abstractmethod
@@ -613,8 +622,8 @@ class BolParser():
     '''
     BEAT_DIVIDER = "|"
     PHRASE_SPLITTER = "-"
-    PHRASE_JOINER_OPEN = "("
-    PHRASE_JOINER_OPEN = ")"
+    PHRASE_JOINER_OPEN = "["
+    PHRASE_JOINER_OPEN = "]"
     MARKER = "~"
 
     SYMBOLSMD = '''
@@ -845,6 +854,25 @@ class BolParser():
         "required": ["mainTheme", "paltas", "tihai"]
     }
 
+    @classmethod
+    def expansionaryAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
+        result = []
+        result.append(tablaFile.mainTheme.bhari)
+        if tablaFile.mainTheme.khali == "Infer":
+            result.append(BolParser.toKhali(tablaFile.mainTheme.bhari))
+        else:
+            result.append(tablaFile.mainTheme.khali)
+
+        for palta in tablaFile.paltas:
+            result.append(palta.bhari)
+            if palta.khali == "Infer":
+                result.append(BolParser.toKhali(palta.khali))
+            else:
+                result.append(palta.khali)
+
+        result.append(tablaFile.tihai)
+        return result
+
     fixedSchema = {
         "type": "object",
         "properties": {
@@ -853,6 +881,15 @@ class BolParser():
         },
         "required": ["content"],
     }
+
+    @classmethod
+    def fixedAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
+        result = []
+        result.append(tablaFile.content)
+        if hasattr(tablaFile, tihai):
+            result.append(tablaFile.tihai)
+
+        return result
 
     chakradarSchema = {
         "type": "object",
@@ -863,6 +900,13 @@ class BolParser():
         "required": ["content", "tihai"],
     }
 
+    @classmethod
+    def chakradarAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
+        result = []
+        result.append(tablaFile.content)
+        result.append(tablaFile.tihai)
+        return result
+
     tihaiSchema = {
         "type": "object",
         "properties": {
@@ -870,6 +914,12 @@ class BolParser():
         },
         "required": ["content"],
     }
+
+    @classmethod
+    def tihaiAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
+        result = []
+        result.append(tablaFile.content)
+        return result
 
     @classmethod
     def expansionaryValidityCheck(cls, bol:Bol) -> bool:
@@ -905,36 +955,140 @@ class BolParser():
         return BolParser.regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
 
 
-    compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck)
-    ("Rela", expansionarySchema, expansionaryValidityCheck)
-    ("Peshkar", expansionarySchema, expansionaryValidityCheck)
-    ("GatKayda", expansionarySchema, expansionaryValidityCheck)
-    ("LadiKayda", expansionarySchema, expansionaryValidityCheck)
-    ("Gat", fixedSchema, regularFixedValidityCheck)
-    ("Tukda", fixedSchema, regularFixedValidityCheck)
-    ("GatTukda", fixedSchema, regularFixedValidityCheck)
-    ("Chakradar", fixedSchema, regularChakradarValidityCheck)
-    ("FarmaisiChakradar", chakradarSchema, specialChakradarValidityCheck)
-    ("KamaaliChakradar", chakradarSchema, specialChakradarValidityCheck)
-    ("Paran", fixedSchema, regularFixedValidityCheck)
-    ("Aamad", fixedSchema, regularFixedValidityCheck)
-    ("Chalan", fixedSchema, regularFixedValidityCheck)
-    ("GatParan", fixedSchema, regularFixedValidityCheck)
-    ("Kissm", fixedSchema, regularFixedValidityCheck)
-    ("Laggi", fixedSchema, regularFixedValidityCheck)
-    ("Mohra", fixedSchema, regularFixedValidityCheck)
-    ("Mukhda", fixedSchema, regularFixedValidityCheck)
-    ("Rou", fixedSchema, regularFixedValidityCheck)
-    ("Tihai", regularTihaiValidityCheck)
-    ("Bedam Tihai", bedamTihaiValidityCheck)
-    ("Damdaar Tihai", damdarTihaiValidityCheck)]
+    compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
+    ("Rela", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
+    ("Peshkar", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
+    ("GatKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
+    ("LadiKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
+    ("Gat", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Tukda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("GatTukda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Chakradar", fixedSchema, regularChakradarValidityCheck, chakradarAssembler)
+    ("FarmaisiChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler)
+    ("KamaaliChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler)
+    ("Paran", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Aamad", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Chalan", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("GatParan", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Kissm", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Laggi", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Mohra", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Mukhda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Rou", fixedSchema, regularFixedValidityCheck, fixedAssembler)
+    ("Tihai", regularTihaiValidityCheck, tihaiAssembler)
+    ("Bedam Tihai", bedamTihaiValidityCheck, tihaiAssembler)
+    ("Damdaar Tihai", damdarTihaiValidityCheck, tihaiAssembler)]
 
     for element in compositionsInitializer:
         CompositionType(**element)
 
     @classmethod
-    def parse(cls, file):
+    def toKhali(cls, bolString:str) -> str:
+        result = bolString
+        for key, val in BolParser.bhariKhaliMappings:
+            result = result.replace(key, val)
+        return result
+
+
+    @classmethod
+    def parse(cls, file) -> Bol:
         assert ".tabla" in file, "Please pass a valid .tabla file"
+        with open(file, 'r') as composition:
+            data = json.load(composition)
+            data = SimpleNamespace(**data)
+        try:
+            compositionType = CompositionType.registeredTypes[data.type]
+            taal = Taal.registeredTaals[data.taal]
+            speed = {}
+            if isinstance(data.speed, dict):
+                for key, val in data.speed.items():
+                    speed.update({BeatRange.fromString(key): Speed(val)})
+            else:
+                speed = Speed(data.speed)
+            jati = {}
+            if isinstance(data.jati, dict):
+                for key, val in data.speed.items():
+                    jati.update({BeatRange.fromString(key): Jati.registeredJatis[val]})
+            elif isinstance(data.jati, str) and data.jati != "Infer":
+                jati = Jati.registeredJatis[data.jati]
+            else:
+                jati = data.jati
+            playingStyle = data.playingStyle
+            assert data.display in Notation.VALID_NOTATIONS
+            display = eval(data.display)
+            assert compositionType.preValidityCheck(data.components)
+        except Exception:
+            raise ValueError("Something is wrong with the configuration of your .tabla file")
+
+        segmentList = compositionType.assembler(data.components)
+        if(any([(segment.count(BEAT_DIVIDER) + 1) % taal.beats != 0 for segment in segmentList])):
+            warnings.warn("Specific segments of your composition do not align with the selected taal. This may or may not be a problem, depending on the type of composition. The program will continue without error as long as the entire composition as a whole aligns in number of beats with the taal.")
+        completeBolString = BEAT_DIVIDER.join(segmentList)
+        assert (completeBolString.count(BEAT_DIVIDER) + 1) % taal.beats == 0, "Taal not compatible with function"
+        totalBeats = completeBolString.count(BEAT_DIVIDER) + 1
+        beatPartition = completeBolString.split(BEAT_DIVIDER)
+        if isinstance(speed, dict):
+            assert BeatRange.isContiguousSequence(list(speed.keys()), totalBeats)
+        if isinstance(jati, dict):
+            assert BeatRange.isContiguousSequence(list(jati.keys()), totalBeats)
+
+        def inferJati(beat:str) -> int:
+            beat = beat.replace(PHRASE_SPLITTER, " ")
+            beat = beat.replace(MARKER, "")
+            #Find number of groupings
+            groupings = beat.count(PHRASE_JOINER_OPEN)
+            return len(beat.split(" ")) - groupings
+
+        def getJati(beatNumber:int) -> int:
+            if isinstance(jati, Jati):
+                return jati.syllables
+            elif isinstance(jati, dict):
+                for beatInterval in jati.keys():
+                    if beatNumber >= beatInterval.begin and beatNumber < beatInterval.end:
+                        return jati[beatInterval].syllables
+            else:
+                return -1 #Control flow should never end up here
+
+        def getSpeed(beatNumber:int) -> int:
+            if isinstance(speed, Speed):
+                return speed.bpm
+            elif isinstance(speed, dict):
+                for beatInterval in speed.keys():
+                    if beatNumber >= beatInterval.begin and beatNumber < beatInterval.end:
+                        return speed[beatInterval].bpm
+            else:
+                return -1 #Control flow should never end up here
+
+        finalizedBeats = []
+        for i in range len(beatPartition):
+            beat = beatPartition[i]
+            assert jati == "Infer" or inferJati(beat) == getJati(i + 1), "Provided jati for certain beats does not match actual jati"
+            rawPhrases = beat.replace(PHRASE_SPLITTER, "").replace(PHRASE_JOINER_OPEN, "").replace(PHRASE_JOINER_CLOSE, "")
+            rawPhrases = rawPhrases.split(" ")
+            markers = [1 if phrase.startswith(MARKER) else 0 for phrase in rawPhrases]
+            taaliKhaliOrNone = 0
+            if (i + 1)%taal.beats in taal.taali:
+                taaliKhaliOrNone = 1
+            elif (i + 1)%taal.beats in taal.khali:
+                taaliKhaliOrNone = -1
+            saam = False
+            if i%taal.beats == 0:
+                saam = True
+            beatSpeed = getSpeed(i + 1)
+            initializedPhraseList = []
+            for phrase in rawPhrases:
+                temp = ""
+                if phrase.startswith(MARKER):
+                    temp = phrase.replace(MARKER, "")
+                else:
+                    temp = phrase
+                initializedPhraseList.append(Phrase.registeredPhrases[temp])
+
+
+
+
+
+
 
     @classmethod
     def getSymbolRules(cls):
