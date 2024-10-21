@@ -871,31 +871,63 @@ class BolParser():
         "required": ["content"],
     }
 
+    @classmethod
+    def expansionaryValidityCheck(cls, bol:Bol) -> bool:
+        return True
+
+    @classmethod
+    def regularFixedValidityCheck(cls, bol:Bol) -> bool:
+        return True
+
+    @classmethod
+    def regularChakradarValidityCheck(cls, bol:Bol) -> bool:
+        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+        k, m = divmod(len(phraseList), 3)
+        cycles = phraseList[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(3))
+        return len(phraseList) % 3 and set(cycles[0]) == set(cycles[1]) and set(cycles[1]) == set(cycles[2])
+
+    @classmethod
+    def specialChakradarValidityCheck(cls, bol:Bol) -> bool:
+        return BolParser.regularChakradarValidityCheck(bol) and all([beat.saam for beat in bol.markedBeats])
+
+    @classmethod
+    def regularTihaiValidityCheck(cls, bol:Bol) -> bool:
+        return BolParser.regularChakradarValidityCheck(bol)
+
+    @classmethod
+    def bedamTihaiValidityCheck(cls, bol:Bol) -> bool:
+        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+        return BolParser.regularTihaiValidityCheck(bol) and all(["S" not in phrase.ids for phrase in phraseList])
+
+    @classmethod
+    def damdarTihaiValidityCheck(cls, bol:Bol) -> bool:
+        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+        return BolParser.regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
 
 
-    compositionsInitializer = [("Kayda", expansionarySchema)
-    ("Rela", expansionarySchema)
-    ("Peshkar", expansionarySchema)
-    ("GatKayda", expansionarySchema)
-    ("LadiKayda", expansionarySchema)
-    ("Gat", fixedSchema)
-    ("Tukda", fixedSchema)
-    ("GatTukda", fixedSchema)
-    ("Chakradar", fixedSchema)
-    ("FarmaisiChakradar", chakradarSchema)
-    ("KamaaliChakradar", chakradarSchema)
-    ("Paran", fixedSchema)
-    ("Aamad", fixedSchema)
-    ("Chalan", fixedSchema)
-    ("GatParan", fixedSchema)
-    ("Kissm", fixedSchema)
-    ("Laggi", fixedSchema)
-    ("Mohra", fixedSchema)
-    ("Mukhda", fixedSchema)
-    ("Rou", fixedSchema)
-    ("Tihai", tihaiSchema)
-    ("Bedam Tihai", tihaiSchema)
-    ("Damdaar Tihai", tihaiSchema)]
+    compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck)
+    ("Rela", expansionarySchema, expansionaryValidityCheck)
+    ("Peshkar", expansionarySchema, expansionaryValidityCheck)
+    ("GatKayda", expansionarySchema, expansionaryValidityCheck)
+    ("LadiKayda", expansionarySchema, expansionaryValidityCheck)
+    ("Gat", fixedSchema, regularFixedValidityCheck)
+    ("Tukda", fixedSchema, regularFixedValidityCheck)
+    ("GatTukda", fixedSchema, regularFixedValidityCheck)
+    ("Chakradar", fixedSchema, regularChakradarValidityCheck)
+    ("FarmaisiChakradar", chakradarSchema, specialChakradarValidityCheck)
+    ("KamaaliChakradar", chakradarSchema, specialChakradarValidityCheck)
+    ("Paran", fixedSchema, regularFixedValidityCheck)
+    ("Aamad", fixedSchema, regularFixedValidityCheck)
+    ("Chalan", fixedSchema, regularFixedValidityCheck)
+    ("GatParan", fixedSchema, regularFixedValidityCheck)
+    ("Kissm", fixedSchema, regularFixedValidityCheck)
+    ("Laggi", fixedSchema, regularFixedValidityCheck)
+    ("Mohra", fixedSchema, regularFixedValidityCheck)
+    ("Mukhda", fixedSchema, regularFixedValidityCheck)
+    ("Rou", fixedSchema, regularFixedValidityCheck)
+    ("Tihai", regularTihaiValidityCheck)
+    ("Bedam Tihai", bedamTihaiValidityCheck)
+    ("Damdaar Tihai", damdarTihaiValidityCheck)]
 
     for element in compositionsInitializer:
         CompositionType(**element)
