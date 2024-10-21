@@ -18,6 +18,7 @@ import warnings #For warnings
 from transformers import pipeline # For composition generation
 import torch #For model inference
 import random #For generating random speed if only speed class is provided
+from collections import OrderedDict #For representing an ordered mapping of phrases to actual number of syllables taken for each phrase
 
 #A class representing an interval of beats
 class BeatRange():
@@ -218,12 +219,14 @@ class Speed(Numeric):
 
 class Notation(ABC):
 
+    @classmethod
     @abstractmethod
     def toString(self, bol:Bol):
         ...
 
-    def display(self, bol:Bol, fileName:str):
-        print(self.toString(bol), file = fileName)
+    @classmethod
+    def display(cls, bol:Bol, fileName:str):
+        print(Notation.toString(bol), file = fileName)
 
 #TODO
 class Bhatkande(Notation):
@@ -237,38 +240,59 @@ class Bol():
     '''
     A class representing a bol, a collection of beats
     '''
-    def __init__(self, beats:list[Beat]):
+    def __init__(self, beats:list[Beat], notationClass:Union[Type[Notation], None]):
         self.beats = beats
+        self.notationClass = notationClass
+        self.markedBeats = []
+        self.markedPhrases = []
+        for beat in beats:
+            for i in range(len(beat.phrases.keys())):
+                lst = list(beat.phrases.keys())
+                if(beat.markers[i] == 1):
+                    self.markedBeats.append(beat)
+                    self.markedPhrases.append(lst[i])
 
     def play(self):
         for beat in self.beats:
             beat.play()
 
+    def write(self, filename:str, notationClass:Union[Type[Notation], None]):
+        if notationClass is not None:
+            notationClass.display(self, filename)
+        elif self.notationClass is not None:
+            self.notationClass.display(self, filename)
+        else:
+            raise ValueError("No Notation object found to use.")
+
 class Beat():
     '''
     A class representing a collection of phrases
     '''
-    def __init__(self, number:int, beginContinueFlag: bool, endContinueFlag: bool, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, jatiDivisions:list[list[Union[Phrase, PartialPhrase]]], speed:int):
+    def __init__(self, number:int, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, phrases:OrderedDict[Phrase, int], speed:int, markers:list[Literal[0,1]]):
         self.number = number
+        assert len(markers) == len(phrases.keys()), "Invalid length for marker array"
+        self.markers = markers
         self.clap = taaliKhaliOrNone
         self.saam = saam
-        self.beginContinueFlag = beginContinueFlag
-        self.endContinueFlag = endContinueFlag
         self.speed = speed
-        duration = 60.0/speed #In seconds
-        syllableDuration = duration/syllableCheck
+        duration = 60.0/speed #In seconds (this is the duration of the entire beat)
+        jati = 0
+        for _,val in phrases.items():
+            jati += val
+        syllableDuration = duration/jati #This is duration of a specific segment of the beat
         self.multipliers = []
         self.soundFiles = []
-        for i in range(len(jatiDivisions)):
-            self.multipliers.extend([syllableDuration/ (len(jatiDivisions[i]) * phrase.syllables * 0.25) for phrase in jatiDivisions[i]])
-            self.soundFiles.extend([phrase.soundBite.recording for phrase in jatiDivisions[i]])
+        for phrase, syllables in phrases.items():
+            self.multipliers.append((syllables*1.0)/phrase.syllables) * (syllableDuration/0.25)) #Since, in the original recording, one syllable = 0.25 seconds
+            self.soundFiles.append(phrase.soundBite.recording)
+        self.phrases = phrases
 
     def play(self):
         for index in range(len(self.soundFiles)):
             s = AudioSegment(self.soundFiles[i])
-            if s > desiredSyllableDuration:
+            if self.multipliers[i] >= 1:
                 s = s.speedup(self.multipliers[i])
-            elif currentSyllableDuration < desired SyllableDuration:
+            else:
                 s = ae.speed_down(s, self.multipliers[i])
             pydubplay(s)
 
@@ -681,23 +705,22 @@ class BolParser():
     Phrase.registeredPhrases["gran"] : Phrase.registeredPhrases["kran"]
     }
 
-    #TODO: Add theka
     taalInitializer = [{beats=3, name='Sadanand', taali=[1], khali=[]},
     {beats=6, name='Carnatic Rupaak', taali=[1,3], khali=[]},
-    {beats=6, name='Dadra', taali=[1], khali=[4]},
-    {beats=7, name='Pashto', taali=[1,4,6], khali=[]},
-    {beats=7, name='Tevra', taali=[1,4,6], khali=[]},
+    {beats=6, name='Dadra', taali=[1], khali=[4], theka="dha|dhin|na|dha|tin|na"},
+    {beats=7, name='Pashto', taali=[1,4,6], khali=[], theka="tin|S|terekite|dhin|S|dha|ge"},
+    {beats=7, name='Tevra', taali=[1,4,6], khali=[], theka="dha|dhin|ta|tete|ka ta|ga di|ge ne"},
     {beats=7, name='Antarkrida', taali=[1,3,5], khali=[]},
-    {beats=7, name='Rupaak', taali=[4,6], khali=[1]},
-    {beats=8, name='Keherwa', taali=[1], khali=[5]},
+    {beats=7, name='Rupaak', taali=[4,6], khali=[1], theka="tin|tin|na|dhin|na|dhin|na na"},
+    {beats=8, name='Keherwa', taali=[1], khali=[5], theka="dha|ge|na|tin|na|ke|dhin|na"},
     {beats=8, name='Kawwali', taali=[1,5], khali=[]},
     {beats=8, name='Jat1', taali=[1,3,7], khali=[5]},
-    {beats=8, name='Dhumali', taali=[1,3,7], khali=[5]},
+    {beats=8, name='Dhumali', taali=[1,3,7], khali=[5], theka="dhin|dhin|dha|tin|terekite|dhin|dha ge|terekite"},
     {beats=8, name='Bhajni Theka', taali=[1], khali=[5]},
     {beats=9, name='Matta1', taali=[1,3,7,8], khali=[5]},
-    {beats=9, name='Basant', taali=[1,2,3,4,6,8], khali=[5,7,9]},
+    {beats=9, name='Basant', taali=[1,2,3,4,6,8], khali=[5,7,9], theka="dha|dhin|ta|dhet|ta|tete|ka ta|ga di|ge ne"},
     {beats=9, name='Anka', taali=[1,3,7], khali=[]},
-    {beats=9, name='Jhap Sawari', taali=[1, 3, 8], khali=[6]},
+    {beats=9, name='Jhap Sawari', taali=[1, 3, 8], khali=[6], theka="dhin|na|dhin|dhin|na|ka ta|dhin dhin|na dhin|dhin na"},
     {beats=9.5, name='Sunand', taali=[1,3,8,9], khali=[6]},
     {beats=9.5, name='Kalawati', taali=[1,3,7.5], khali=[5]},
     {beats=10, name='At', taali=[1,4,7], khali=[9]},
@@ -705,77 +728,77 @@ class BolParser():
     {beats=10, name='Sulfakta', taali=[1,3,5,8], khali=[]},
     {beats=10, name='Ukshav', taali=[1,5,7,9], khali=[3]},
     {beats=10, name='Kapaalabhruta', taali=[1,4,7], khali=[2,6]},
-    {beats=10, name='Sul', taali=[1,5,7], khali=[3,9]},
-    {beats=10, name='Jhaptaal', taali=[1, 3, 8], khali=[6]},
+    {beats=10, name='Sul', taali=[1,5,7], khali=[3,9], theka="dha|dha|dhin|ta|ki te|dha|tete|ka ta|ga di|ge ne"},
+    {beats=10, name='Jhaptaal', taali=[1, 3, 8], khali=[6], theka="dhin|na|dhin|dhin|na|tin|na|dhin|dhin|na"},
     {beats=10.5, name='Sardha Rupaak', taali=[1,5,8], khali=[]},
     {beats=11, name='Iktaali', taali=[1,5,7]},
-    {beats=11, name='Rudra', taali=[1,3,4,5,7,8,9], khali=[]},
+    {beats=11, name='Rudra', taali=[1,3,4,5,7,8,9], khali=[], theka="dha|tet|dha|terekite|dhin|na|terekite|thun|na|kat|ta"},
     {beats=11, name='Mani', taali=[1,4,9], khali=[6]},
     {beats=11, name='Indraleen', taali=[1,4,6,9], khali=[2]},
     {beats=11, name='Char Taal Ki Sawari', taali=[1, 3, 7, 9, 10], khali=[5]},
-    {beats=11, name='Kumbha', taali=[1, 3, 4, 5, 7, 8, 9, 10], khali=[2, 6, 11]},
-    {beats=11, name='Ashtamangal1', taali=[1, 3, 4, 6, 7, 9, 10, 11], khali=[2, 5, 8]},
+    {beats=11, name='Kumbha', taali=[1, 3, 4, 5, 7, 8, 9, 10], khali=[2, 6, 11], theka="dha|dhin na|ta ka|tete|dha|ghe re|na ga|tete|ka ta|ga di|ge ne"},
+    {beats=11, name='Ashtamangal1', taali=[1, 3, 4, 6, 7, 9, 10, 11], khali=[2, 5, 8], theka="dhin|na|dhin|dhin|na|dhin|dhin|na|dha ge|na dha|terekite"},
     {beats=12, name='Uday', taali=[1,6,8], khali=[]},
-    {beats=12, name='Chautaal', taali=[1,5,9,11], khali=[3,7]},
+    {beats=12, name='Chautaal', taali=[1,5,9,11], khali=[3,7], theka="dha|dha|dhin|ta|ki te|dha|dhin|ta|tete|ka ta|ga di|ge ne"},
     {beats=12, name='Vikram', taali=[1,3,9], khali=[6]},
-    {beats=12, name='Ektaal', taali=[1,5,9,11], khali=[3,7]},
-    {beats=12, name='Khemta', taali=[1, 4, 10], khali=[7]},
+    {beats=12, name='Ektaal', taali=[1,5,9,11], khali=[3,7], theka="dhin|dhin|dha ge|terekite|thun|na|kat|ta|dha ge|terekite|dhin|na"},
+    {beats=12, name='Khemta', taali=[1, 4, 10], khali=[7], theka="dha|te|dhin|na|tin|na|ta|te|dhin|na|dhin|na"},
     {beats=13, name='Jai', taali=[1,3,7,11,12], khali=[5,9]},
     {beats=13, name='Arnima', taali=[1,3,10,12], khali=[8]},
-    {beats=13, name='Lilawati', taali=[1, 5, 9, 12], khali=[]},
-    {beats=14, name='Dhamar', taali=[1,6,11], khali=[8]},
+    {beats=13, name='Lilawati', taali=[1, 5, 9, 12], khali=[], theka="dhin|dhin|dha|terekite|dhin|S|tin|tin|ta|terekite|dhin|dhin"},
+    {beats=14, name='Dhamar', taali=[1,6,11], khali=[8], theka="ka|dhe|te|dhe|te|dha|S|ga|te|te|te|te|ta|S"},
     {beats=14, name='At', taali=[1,6,11,13], khali=[4,9]},
-    {beats=14, name='Deepchandi', taali=[1,4,11], khali=[8]},
-    {beats=14, name='Jhoomra', taali=[1,4,11], khali=[8]},
-    {beats=14, name='Ada Chautaal', taali=[1,3,7,11], khali=[5,9,13]},
-    {beats=14, name='Brahma1', taali=[1, 3, 4, 6, 7, 8, 10, 11, 12, 13], khali=[2, 5, 9,14]},
-    {beats=14, name='Pharudasta', taali=[1, 5, 9, 11, 13], khali=[3, 7]},
-    {beats=15, name='Pancham Sawari', taali=[1,4,12], khali=[8]},
-    {beats=15, name='Choti Sawari', taali=[1,5,9,13], khali=[]},
-    {beats=15, name='Gaja Jhampaa', taali=[1,5,13], khali=[9]},
+    {beats=14, name='Deepchandi', taali=[1,4,11], khali=[8], theka="dha|dhin|S|dha|dha|tin|S|ta|tin|dha|dha|dhin|S"},
+    {beats=14, name='Jhoomra', taali=[1,4,11], khali=[8], theka="dhin|S dha|terekite|dhin|dhin|dha ge|terekite|tin|S ta|terekite|dhin|dhin|dha ge|terekite"},
+    {beats=14, name='Ada Chautaal', taali=[1,3,7,11], khali=[5,9,13], theka="dhin|terekite|dhin|na|thun|na|kat|ta|terekite|dhin|na|dhin|dhin|na"},
+    {beats=14, name='Brahma1', taali=[1, 3, 4, 6, 7, 8, 10, 11, 12, 13], khali=[2, 5, 9,14], theka="dha|tet|dhet|dhin na|na ke|dhet|dhet|dhin na| na ke|dha ge|tete|ka ta|ga di|ge ne"},
+    {beats=14, name='Pharudasta', taali=[1, 5, 9, 11, 13], khali=[3, 7], theka="dhin|dhin|dha ge|terekite|thun|na|kat|ta|dhin na|ka dha|terekite|dhin na|ka dha|terekite"},
+    {beats=15, name='Pancham Sawari', taali=[1,4,12], khali=[8], theka="dhin|na|dhin dhin|ka ta|dhin dhin|na dhin|dhin na|tin S S kra|tin na|terekite|thun na|kat ta|dhin dhin|na dhin|dhin na"},
+    {beats=15, name='Choti Sawari', taali=[1,5,9,13], khali=[], theka="dha|S|dha|di|ga|na|dhin|na|ki|ta|ta|ka|di|na|ta"},
+    {beats=15, name='Gaja Jhampaa', taali=[1,5,13], khali=[9], theka="dha|dhin na|na ka|ta ka|dha|dhin na|na ka|ta ka|tin|na ka|ta ka|tete|ka ta|ga di|ge ne"},
     {beats=15, name='Indra', taali=[1,5,9,11,13], khali=[]},
     {beats=15.5, name='Yog', taali=[1,5,14], khali=[9]},
     {beats=16, name='Aryaa', taali=[1,3,7,10,13], khali=[]},
-    {beats=16, name='Ikwai', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Ikwai', taali=[1,5,13], khali=[9], theka="dha|S|ge|ge|dha|ge|S|ge|ta|S|ke|ke|dha|ge|S|ghe"},
     {beats=16, name='Chachar', taali=[1,5,13], khali=[9]},
     {beats=16, name='Gajarmukh', taali=[1,6,8,13], khali=[11]},
-    {beats=16, name='Teentaal', taali=[1,5,13], khali=[9]},
-    {beats=16, name='Tilwada', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Teentaal', taali=[1,5,13], khali=[9], theka="dha|dhin|dhin|dha|dha|dhin|dhin|dha|dha|tin|tin|ta|tete|dhin|dhin|dha"},
+    {beats=16, name='Tilwada', taali=[1,5,13], khali=[9], theka="dha|terekite|dhin|dhin|dha|dha|tin|tin|ta|terekite|tin|tin|dha|dha|dhin|dhin"},
     {beats=16, name='HaunsVilas', taali=[1,6,11,14], khali=[8]},
-    {beats=16, name='Punjabi', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Punjabi', taali=[1,5,13], khali=[9], theka="dha|S dhin|na ka|dha|dha|S dhin|na ka|dha|dha|S tin|na ka|ta|ta|S dhin|na ka|dha"},
     {beats=16, name='Ushakiran', taali=[1,7,11], khali=[15]},
     {beats=16, name='Udeerna', taali=[1,8,10], khali=[]},
-    {beats=16, name='Tappe ka Taal', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Tappe ka Taal', taali=[1,5,13], khali=[9], theka="dhin|S|dha|S ga|dha|dhin|ta|S kra|tin|S|ta|ga|dha|dhin|ta|S kra"},
     {beats=16, name='Addha', taali=[1,5,13], khali=[9]},
-    {beats=16, name='Bari Sawari', taali=[1, 5, 9, 11, 13], khali=[3, 7, 15]},
-    {beats=16, name='Jat2', taali=[1,5,13], khali=[9]},
-    {beats=16, name='Sitarkhani', taali=[1, 5, 13], khali=[9]},
-    {beats=17, name='Shikhar', taali=[1,13,15], khali=[7]},
+    {beats=16, name='Bari Sawari', taali=[1, 5, 9, 11, 13], khali=[3, 7, 15], theka="dhin|na|dhin|na|dhin dhin|dhin na|dhin dhin|dhin na|ta S tere-kite|thun na|ta S tere-kite|thun na|kat ta S S|tere-kite dhin na|ge ne dha ge|na dha tere-kite"},
+    {beats=16, name='Jat2', taali=[1,5,13], khali=[9], theka="dha|S|dhin|S|dha|dha|tin|S|ta|S|tin|S|dha|dha|dhin|S"},
+    {beats=16, name='Sitarkhani', taali=[1, 5, 13], khali=[9], theka="dha|S dhin|S ka|dha|dha|S dhin|S ka|dha|dha|S ti|S ka|ta|ta|S dhe|S ka|dha"},
+    {beats=17, name='Shikhar', taali=[1,13,15], khali=[7], theka="dha|terekite|dhin na|na ka|thun|ga|dhin na|na ka|dhin na|ki ta|ta ka|dhet|dha|tete|ka ta|ga di|ge ne"},
     {beats=17, name='Sujan Shikhar', taali=[1,3,10,13,15], khali=[7]},
     {beats=17, name='Indraleen', taali=[1,8,13], khali=[4, 16]},
     {beats=17, name='Dhruvataal', taali=[1,6,8,13], khali=[]},
-    {beats=17, name='Vishnu1', taali=[1, 5, 7, 11, 13, 15], khali=[]},
-    {beats=17, name='Vishnu2', taali=[1, 3, 7, 11, 13, 15], khali=[]},
-    {beats=17, name='Vishnu3', taali=[1, 3, 6, 10], khali=[14]},
-    {beats=17, name='Vishnu4', taali=[1, 5, 9, 11, 13, 15], khali=[3, 7]},
-    {beats=17, name='Churamani', taali=[1, 4, 6, 10, 14]},
-    {beats=17, name='Mayur', taali=[1, 3, 7, 13]},
+    {beats=17, name='Vishnu1', taali=[1, 5, 7, 11, 13, 15], khali=[], theka="dha|S|ki|te|ta|ka|dhin|na|ki|te|ta|ka|dhe|S|dhin|na|ta"},
+    {beats=17, name='Vishnu2', taali=[1, 3, 7, 11, 13, 15], khali=[], theka="dha|S|ki|te|ta|ka|dhin|na|ki|te|ta|ka|dhe|S|dhin|na|ta"},
+    {beats=17, name='Vishnu3', taali=[1, 3, 6, 10], khali=[14], theka="dhin|na|dhin|dhin|na|dhin|terekite|dhin|na|dhin|dhin|na|dhin|dhin|na|dhin|na"},
+    {beats=17, name='Vishnu4', taali=[1, 5, 9, 11, 13, 15], khali=[3, 7], theka="dhin|terekite|dhin|na|thun|na|kat|ta|terekite|dhin|na|dha ge|na dha|terekite|dha ge|na dha|terekite"},
+    {beats=17, name='Churamani', taali=[1, 4, 6, 10, 14], theka="dha|ka|ta|thun|na|dhin|dhin|na|terekite|na|dhin|dhin|na|dhin|terekite|dhin|na"},
+    {beats=17, name='Mayur', taali=[1, 3, 7, 13], khali = [], theka="dha|dha|dhin na|na ka|dhe|dhe|dhin na|na ka|ki|te|ta|ka|ga|di|ge|ne|ta"},
     {beats=18, name='At2', taali=[1,8,15,17], khali=[5,11]},
-    {beats=18, name='Matta2', taali=[1, 5, 7, 11, 13, 15], khali=[3, 9, 17]},
-    {beats=18, name='Lakshmi', taali=[1,2,3,5,6,7,9,10,11,12,13,14,15,16,17], khali=[4, 8, 18]},
-    {beats=18, name='Ganesh', taali=[1,5,9,13,15], khali=[]},
+    {beats=18, name='Matta2', taali=[1, 5, 7, 11, 13, 15], khali=[3, 9, 17], theka="dha|S|ghe|re|na|ka|ghe|re|na|ka|te|te|ka|ta|ga|di|ga|ne"},
+    {beats=18, name='Lakshmi', taali=[1,2,3,5,6,7,9,10,11,12,13,14,15,16,17], khali=[4, 8, 18], theka="dhin na|dhin dha|terekite|dhin na|dhin dha|terekite|dha dha|terekite|dha dha|terekite|dhin na|dhin dha|terekite|thun na|ki re na ga|ta ge|ta S|terekite"},
+    {beats=18, name='Ganesh', taali=[1,5,9,13,15], khali=[], theka="dha|S|dhin|ta|dhin|ta|dha|S|dha|S|ki|ta|ta|ka|dha|dhi|ga|na"},
     {beats=19, name='Panchanan', taali=[1,3,9,11,15], khali=[6,18]},
-    {beats=19, name='Shesh', taali=[1, 5, 9, 11, 13, 17, 18], khali=[]},
+    {beats=19, name='Shesh', taali=[1, 5, 9, 11, 13, 17, 18], khali=[], theka="dha|S|ki|ta|ta|ka|dhin|na|ki|te|ta|ka|dha|S|ta|S|dha|ga di|ge ne"},
     {beats=20, name='Abhinandan', taali=[1,5,7,11,13,15,19], khali=[]},
     {beats=20, name='Arjun', taali=[1,5,7,11,13,15], khali=[]},
-    {beats=22, name='Ashtamangal2', taali=[1,5,7,11,13,17,19,21], khali=[]},
+    {beats=22, name='Ashtamangal2', taali=[1,5,7,11,13,17,19,21], khali=[], theka="dha|S|ki|te|ta|ka|dhin|na|ki|te|ta|ka|dhe|S|ta|S|ta|ka|dha|dhi|ga|na"},
     {beats=22, name='At3', taali=[1, 10, 19, 21], khali=[7,17]},
     {beats=24, name='Chaktaal', taali=[1,7,19], khali=[13]},
     {beats=24, name='Abhiram', taali=[1,7,10,14,19], khali=[]},
     {beats=24, name='At4', taali=[1,3,5,9,11,15], khali=[]},
     {beats=24, name='Kandarpa', taali=[1,3,5,9,17], khali=[13, 21]},
     {beats=27, name='Ardhya', taali=[1,5,7,9,14,17,22,23,24,25,26,27], khali=[]},
-    {beats=28, name='Brahma2', taali=[1,5,7,11,13,15,19,21,23,25], khali=[3,9,17,27]}]
+    {beats=28, name='Brahma2', taali=[1,5,7,11,13,15,19,21,23,25], khali=[3,9,17,27]}, theka="dha|S|ta|S|dha|S|dhi|na|ta|ki|ta|dha|S|dhin|S|ta|S|dha|S|te|te|ka|ta|ga|di|ga|na"]
 
     for element in taalInitializer:
         Taal(**element)
@@ -783,12 +806,14 @@ class BolParser():
     jatiInitializer = [{syllables = 3, name = 'Tisra'},
     {syllables = 4, name = 'Chatusra'},
     {syllables = 5, name = 'Khanda'},
-    {syllables = 7, name = 'Mishra'}]
+    {syllables = 7, name = 'Mishra'},
+    {syllables = 9, name = 'Sankeerna'}]
 
     for element in jatiInitializer:
         Jati(**element)
 
-    #TODO: Correct this
+    kaydaSchema = {}
+
     compositionsInitializer = [("Kayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
     ("Rela", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Madhya' or speed == 'Drut')
     ("Peshkar", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
@@ -817,13 +842,45 @@ class BolParser():
         CompositionType(**element)
 
     @classmethod
-    def parse(cls, self, file):
+    def parse(cls, file):
         assert ".tabla" in file, "Please pass a valid .tabla file"
 
     @classmethod
-    def getSymbolRules(cls, self):
+    def getSymbolRules(cls):
         from rich.console import Console
         from rich.markdown import Markdown
         console = Console()
         md = Markdown(BolParser.SYMBOLSMD)
         console.print(md)
+
+    @classmethod
+    def getVocabInitializer(cls):
+        return BolParser.vocabInitializer
+
+    @classmethod
+    def getCompositesInitializer(cls):
+        return BolParser.compositeInitializer
+
+    @classmethod
+    def getSequentialInitializer(cls):
+        return BolParser.sequentialInitializer
+
+    @classmethod
+    def getSpeedInitializer(cls):
+        return BolParser.speedInitializer
+
+    @classmethod
+    def getJatiInitializer(cls):
+        return BolParser.jatiInitializer
+
+    @classmethod
+    def getBhariKhaliMappings(cls):
+        return BolParser.bhariKhaliMappings
+
+    @classmethod
+    def getTaalInitializer(cls):
+        return BolParser.taalInitializer
+
+    @classmethod
+    def getCompositionsInitializer(cls):
+        return BolParser.compositionsInitializer

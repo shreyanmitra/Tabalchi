@@ -37,8 +37,7 @@ To play a given .tabla file, simply write the following Python code. You will ne
 ```python
 from Tabla import *
 parser = BolParser()
-parser.load("yourBol.tabla")
-parser.play()
+parser.parse("yourBol.tabla").play()
 ```
 
 To view the entire composition with the notation of your choice (specified in the .tabla file itself), simply write:
@@ -46,21 +45,19 @@ To view the entire composition with the notation of your choice (specified in th
 ```python
 from Tabla import *
 parser = BolParser()
-parser.load("yourBol.tabla")
-parser.write("yourOutputFile.txt/pdf")
+parser.parse("yourBol.tabla").write("yourOutputFile.txt/pdf", Bhatkande)
 ```
 The parser above is the standard BolParser provided by the library. You can create your own parser by doing something like:
 
 ```python
 from Tabla import*
-#NOT RECOMMENDED
 class MyParser(BolParser):
   #override functionality
 parser = MyParser()
 parser.load("yourBol.tabla")
 ```
 
-However, this is not preferred. Instead, the standard parser uses a set of predefined configurations which can be updated through the ``Fetcher`` class' ``addFileToConfig()``. It also uses some standard symbols given below:
+The standard parser uses a set of predefined configurations available through the appropriate ``get`` methods. It also uses some standard symbols given below:
 
 <table>
   <tr>
@@ -96,14 +93,27 @@ However, this is not preferred. Instead, the standard parser uses a set of prede
   </tr>
 </table>
 
-This symbol specification is given by ``BolParser``'s ``getSymbols()``, which should be overridden to return an appropriate markdown file if your parser uses different/additional symbols.
+This symbol specification is given by ``BolParser``'s ``getSymbols()``, which should be overridden to return appropriate markdown text if your parser uses different/additional symbols.
 
-We now give brief descriptions of the main classes you may find yourself using. See the docs for more detailed descriptions.
+We now give brief descriptions of the main classes you may find yourself using in addition to BolParser. See the docs for more detailed descriptions.
 
-1. Fetcher - Given a phrase, this class retrieves the corresponding Sound object. It also modifies the configuration files, or adds a new recording.
-2. Sound - A wrapper around a MIDI file that offers ``play`` functionality and also keeps track of all valid Sound objects at a specific time of program execution.
-3. Phrase - A class that represents a valid *bol* on the tabla. Associated with a sound and syllable count, among other properties.
-4. Composition - A class that represents a composition. Properties include extensibility, components, speed, and jati.
+1. **BeatRange**: Represents an interval of beats with methods for checking sequences and subsequences.
+2. **CompositionType**: Defines a composition type with a schema, validity check, and registration for future use.
+3. **Numeric**: An abstract base class representing entities with an associated number, utilized for Taal, Jati, and Speed classes.
+4. **Taal**: Represents a rhythmic cycle or meter in Indian classical music, storing beats, clap positions, and additional information.
+5. **Jati**: Represents a rhythmic grouping or subdivision, defined by the number of syllables.
+6. **SpeedClasses**: Categorizes speed into classes based on beats per minute with methods for checking and generating random speeds.
+7. **Speed**: Represents a specific tempo, either by beats per minute or by a named speed class.
+8. **Notation**: An abstract base class for converting a Bol into a string format, with a method for displaying the notation.
+9. **Bhatkande**: Intended to handle Bhatkande notation (without current implementation).
+10. **Paluskar**: Intended to handle Paluskar notation (without current implementation).
+11. **Bol**: Represents a collection of beats with methods for playback and writing to a file using a specified notation.
+12. **Beat**: Represents a collection of phrases within a beat, managing playback and phrase duration calculations.
+13. **Fetcher**: Provides static methods for fetching sound data associated with phrases or adding new audio recordings.
+14. **Sound**: Represents the soundbite associated with a phrase, with methods for playing and merging or joining sounds.
+15. **Phrase**: Represents a tabla phrase including its properties, soundbite, and functionality for playing and creating composite or sequential phrases.
+16. **CompositionGenerator**: Offers a static method for generating a composition of a specified type using a machine learning model.
+17. **AudioToBolConvertor**: Provides a static method to transcribe a Bol from an audio recording based on speed and jati.
 
 ## About the Author
 Shreyan has been learning the tabla for 12+ years at the [Akhil Bharatiya Gandharva Mahavidyalaya Mandal](https://en.wikipedia.org/wiki/Akhil_Bharatiya_Gandharva_Mahavidyalaya_Mandal). He is currently pursuing a Visharad (equivalent to a Bachelor's) certification.
