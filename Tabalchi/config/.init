@@ -1,7 +1,0 @@
-VOCAB = basicVocab.define
-COMPOSITE = basicComposites.define
-SEQUENCE = basicSequences.define
-BHARI_TO_KHALI = basicBhariKhaliMapping.define
-TAAL = basicTaals.define
-JATI = basicJatis.define
-SPEED = basicSpeeds.define

@@ -2,9 +2,11 @@
 
 #Imports
 import json #For parsing .tabla files
+from jsonschema import validate #For checking .tabla files for validity
 from config.initialize import * #For file configs
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
+from pydub.playback import play as pydubplay#Also for playing sounds
 from pydub import AudioSegment #For merging and joining sounds
 import audio_effects as ae # For slowing down sounds
 import acoustid #For fingerprinting audio files
@@ -15,10 +17,9 @@ import os #For moving files
 import warnings #For warnings
 from transformers import pipeline # For composition generation
 import torch #For model inference
+import random #For generating random speed if only speed class is provided
 
-#For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
-#Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
-
+#A class representing an interval of beats
 class BeatRange():
     '''
     Class representing a beat range
@@ -78,425 +79,40 @@ class BeatRange():
                 subsequence.append(BeatRange(begin, end))
         return sorted(subsequence)
 
-class Composition(ABC):
+#A class representing a composition type. Ex. Kayda, Rela, etc.
+#For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
+#Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
+class CompositionType():
+    registeredTypes = {} # A class variable keeping track of the list of registered composition types
     '''
-    Abstract class that represents a generic tabla composition.
-
-    Required Properties:
-        type(str): The class of composition (Ex. Kayda, Gat, etc.)
-        name(str): The name of the composition
-        components(list): Ordered collection of other components that make up this composition (Ex. Kayda = MainTheme + Paltas + Tihai)
-        taal(Taal): The taal this composition is in (Ex. Teentaal, Pancham Sawadi), given as a Taal object
-        speed(Speed or dict<BeatRange, Speed>): The speed of this composition, given as a Speed object. Can specify specific ranges if speed varies
-        jati(Jati or dict<BeatRange, Speed>): The jati of this composition, given as a Jati object. This is the number of syllables per beat. Can specify specific ranges if jati varies
-        playingStyle(String): The gharana, or style, of playing. As of the current version, this has no immediate effect and is only for information. If you want to make certain bols sound different, you need to record new MIDI files for them.
-        display(Notation): The notation system to use when displaying the composition
-        length(int): The length of the composition
-    '''
-    def __init__(self, type:str, name:str, components:List[Composition], taal:Taal, speed:Union[Speed, Dict[BeatRange, Speed]], jati:Union[Jati, Dict[BeatRange, Jati]], playingStyle:str, display:Notation):
-        self._type = type
-        self._name = name
-        self._taal = taal
-        self._speed = speed
-        self._jati = jati
-        self._playingStyle = playingStyle
-        self._display = display
-        self._bol = ""
-        self._length = sum(c._length for c in components)
-        for component in components:
-            assert components._length % taal._number == 0, "One or more components does not match the number of beats specified by the taal."
-            self._bol += components._bol
-        if isinstance(speed, dict):
-            assert BeatRange.isContiguousSequence(list(speed.keys()), self._length), "Beat range specified does not cover the entire composition's length."
-        if isinstance(jati, dict):
-            assert BeatRange.isContiguousSequence(list(jati.keys()), self._length), "Beat range specified does not cover the entire composition's length."
-
-    @property
-    @abstractmethod
-    def type(self):
-        ...
-    @property
-    @abstractmethod
-    def length(self):
-        ...
-    @property
-    @abstractmethod
-    def bol(self):
-        ...
-    @property
-    @abstractmethod
-    def name(self):
-        ...
-    @property
-    @abstractmethod
-    def components(self):
-        ...
-    @property
-    @abstractmethod
-    def taal(self):
-        ...
-    @property
-    @abstractmethod
-    def speed(self):
-        ...
-    @property
-    @abstractmethod
-    def jati(self):
-        ...
-    @property
-    @abstractmethod
-    def playingStyle(self):
-        ...
-    @property
-    @abstractmethod
-    def display(self):
-        raise NotImplementedError("Conversion to pdf has not been implemented yet")
-
-class ExtensibleComposition(Composition, ABC):
-    '''
-    An abstract class that inherits from Composition class. It has some additional properties.
-
-    Required Properties:
-        mainTheme(MainTheme): A MainTheme object that represents the main theme of the extensible composition, upon which other components are expanded from
-        paltas(list[Palta]): A list of Palta objects that represent variations on the main theme
-        tihai(Tihai): A Tihai object that represents the final component of the extensible composition
-    '''
-    def __init__(self, type, name, mainTheme:MainTheme, paltas:List[Palta], tihai:Tihai, taal, speed, jati, playingStyle, display):
-        self._mainTheme = mainTheme
-        self._paltas = paltas
-        self._tihai = tihai
-        components = [mainTheme]
-        components.extend(paltas)
-        components.append(tihai)
-        super().__init__(type, name, components, taal, speed, jati, playingStyle, display)
-
-    @property
-    @abstractmethod
-    def mainTheme(self):
-        ...
-    @property
-    @abstractmethod
-    def paltas(self):
-        ...
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class PublicComposition(Composition, ABC):
-    '''
-    Abstract class that represents a composition that can be imported from a dot tabla file
-    '''
-    @classmethod
-    @abstractmethod
-    def fromdottabla(cls):
-        ...
-
-class ComponentComposition(Composition, ABC):
-    '''
-    Abstract class that represents a composition that cannot be imported from a dict
-    '''
-    @classmethod
-    @abstractmethod
-    def fromdict(cls):
-        ...
-
-class Kayda(ExtensibleComposition, PublicComposition):
-    '''
-    A class that represents a Kayda.
+    A class to represent a composition type
 
     Parameters:
-        See properties of Composition and ExtensibleComposition
+        name(str): The name of the composition type. Ex. Kayda, Rela, etc.
+        schema(dict): The structure of the components field of the .tabla file
+        validityCheck(Callable[[Bol],[bool]]): A function that returns whether a given Bol is of the composition type being considered
+        register(bool): Whether to register the composition type (i.e. to save it for future use). By default, True
     '''
-
-    @classmethod
-    def fromdottabla(cls, file):
-        data = SimpleNamespace(**json.loads(file))
-        assert data.composition == "Kayda", "Tried to initialize a " + data.composition + " as a Kayda."
-        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
-        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
-        mainTheme = MainTheme.fromdict(data.components.mainTheme)
-        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
-        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
-        paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
-        currentStop = mainTheme._length
-        for palta in paltas:
-            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
-            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
-            currentStop += palta._length
-        tihai = Tihai.fromdict(data.components.tihai)
-        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
-        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
-        return Kayda(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
-
-    def type(self):
-        return self._type
-
-    def length(self):
-        return self._length
-
-    def mainTheme(self):
-        return self._mainTheme
-
-    def paltas(self):
-        return self._paltas
-
-    def tihai(self):
-        return self._tihai
-
-    def name(self):
-        return self._name
-
-    def components(self):
-        return self._components
-
-    def taal(self):
-        return self._taal
-
-    def speed(self):
-        return self._speed
-
-    def jati(self):
-        return self._jati
-
-    def playingStyle(self):
-        return self._playingStyle
-
-    def display(self):
-        return self._display
-
-class Rela(ExtensibleComposition, PublicComposition):
-    '''
-    A class that represents a Rela.
-
-    Parameters:
-        See properties of Composition and ExtensibleComposition
-    '''
-
-    @classmethod
-    def fromdottabla(cls, file):
-        data = SimpleNamespace(**json.loads(file))
-        assert data.composition == "Rela", "Tried to initialize a " + data.composition + " as a Rela."
-        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
-        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
-        if (isinstance(data.speed, Speed) and data.speed._number < 120) or (any([dat.speed._number < 120 for dat in data.speed.values()])):
-            warnings.warn("At least part of this composition is played at slower than 120 bpm. Relas generally tend to be played in the Madhya and Drut Laya. Are you sure that you have provided the right speed information?")
-        mainTheme = MainTheme.fromdict(data.components.mainTheme)
-        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
-        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
-        paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
-        currentStop = mainTheme._length
-        for palta in paltas:
-            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
-            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
-            currentStop += palta._length
-        tihai = Tihai.fromdict(data.components.tihai)
-        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
-        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
-        return Rela(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
-
-    def type(self):
-        return self._type
-
-    def length(self):
-        return self._length
-
-    def mainTheme(self):
-        return self._mainTheme
-
-    def paltas(self):
-        return self._paltas
-
-    def tihai(self):
-        return self._tihai
-
-    def name(self):
-        return self._name
-
-    def components(self):
-        return self._components
-
-    def taal(self):
-        return self._taal
-
-    def speed(self):
-        return self._speed
-
-    def jati(self):
-        return self._jati
-
-    def playingStyle(self):
-        return self._playingStyle
-
-    def display(self):
-        return self._display
-
-class Peshkar(ExtensibleComposition, PublicComposition):
-    '''
-    A class that represents a Peshkar.
-
-    Parameters:
-        See properties of Composition and ExtensibleComposition
-    '''
-
-    @classmethod
-    def fromdottabla(cls, file):
-        data = SimpleNamespace(**json.loads(file))
-        assert data.composition == "Rela", "Tried to initialize a " + data.composition + " as a Rela."
-        data.speed = {BeatRange(key): Speed(val) for key, val in data.speed} if isinstance(data.speed, dict) else Speed(data.speed)
-        data.jati = {BeatRange(key): Jati(val) for key, val in data.jati} if isinstance(data.speed, dict) else Jati(data.jati)
-        if (isinstance(data.speed, Speed) and data.speed._number > 120) or (any([dat.speed._number > 120 for dat in data.speed.values()])):
-            warnings.warn("At least part of this composition is played at faster than 120 bpm. Peshkars generally tend to be played in the Vilambit and Madhya Layas. Are you sure that you have provided the right speed information?")
-        mainTheme = MainTheme.fromdict(data.components.mainTheme)
-        mainTheme._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, 1, mainTheme._length)
-        mainTheme._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, mainTheme._length)
-        paltas = [Palta.fromdict(palta) for palta in data.components.paltas]
-        currentStop = mainTheme._length
-        for palta in paltas:
-            palta._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, palta._length)
-            palta._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, 1, currentStop, palta._length)
-            currentStop += palta._length
-        tihai = Tihai.fromdict(data.components.tihai)
-        tihai._speed = data.speed if not isinstance(data.speed, dict) else BeatRange.getSubsequence(data.speed, currentStop, tihai._length)
-        tihai._jati = data.jati if not isinstance(data.jati, dict) else BeatRange.getSubsequence(data.jati, currentStop, tihai._length)
-        return Peshkar(data.composition, data.name, mainTheme, paltas, tihai, Taal(data.taal), data.speed, data.jati, data.playingStyle, Notation(data.display))
-
-    def type(self):
-        return self._type
-
-    def length(self):
-        return self._length
-
-    def mainTheme(self):
-        return self._mainTheme
-
-    def paltas(self):
-        return self._paltas
-
-    def tihai(self):
-        return self._tihai
-
-    def name(self):
-        return self._name
-
-    def components(self):
-        return self._components
-
-    def taal(self):
-        return self._taal
-
-    def speed(self):
-        return self._speed
-
-    def jati(self):
-        return self._jati
-
-    def playingStyle(self):
-        return self._playingStyle
-
-    def display(self):
-        return self._display
-
-class Uthaan(FixedSizeComposition):
-    pass
-
-class GatKayda(ExtensibleComposition):
-    pass
-
-class LadiKayda(ExtensibleComposition):
-    pass
-
-class FixedSizeComposition(Composition, ABC):
-    @property
-    @abstractmethod
-    def content(self):
-        ...
-
-class Gat(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class Tukda(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class GatTukda(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class Chakradar(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class FarmaisiChakradar(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class KamaaliChakradar(FixedSizeComposition):
-    @property
-    @abstractmethod
-    def tihai(self):
-        ...
-
-class Paran(FixedSizeComposition):
-    pass
-
-class Aamad(FixedSizeComposition):
-    pass
-
-class Chalan(FixedSizeComposition):
-    pass
-
-class GatParan(FixedSizeComposition):
-    pass
-
-class Kissm(FixedSizeComposition):
-    pass
-
-class Laggi(FixedSizeComposition):
-    pass
-
-class Mohra(FixedSizeComposition):
-    pass
-
-class Mukhda(FixedSizeComposition):
-    pass
-
-class Rou(FixedSizeComposition):
-    pass
-
-class Tihai(FixedSizeComposition):
-    pass
-
-class BedamTihai(Tihai):
-    pass
-
-class DamdarTihai(Tihai):
-    pass
-
-class MainTheme(FixedSizeComposition):
-    pass
-
-class Palta(FixedSizeComposition):
-    pass
-
-class Bhari(FixedSizeComposition):
-    pass
-
-class Khali(FixedSizeComposition):
-    pass
-
+    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], register:bool = True):
+        self.name = name
+        self.schema = schema
+        def preValidityCheck(bol:dict) -> bool:
+            try:
+                validate(instance = bol, schema = schema)
+                return True
+            except Exception:
+                return False
+
+        self.preCheck = preValidityCheck #This is used within the BolParser before BolParser turns the .tabla file into a Bol (Note to parser: only pass in components field here)
+        self.mainCheck = validityCheck #This is used within the BolParser with a fully instantiated Bol object
+        if register:
+            CompositionType.registeredTypes.update({name: self})
+
+#A class representing something with an associated number. Ex. Taal, Jati, Speed, etc.
 class Numeric(ABC):
+    '''
+    A class representing something that has an associated number
+    '''
     @property
     @abstractmethod
     def name(self):
@@ -507,28 +123,156 @@ class Numeric(ABC):
     def number(self):
         ...
 
-class Taal(FixedComposition, Numeric):
+#A class representing a Taal
+class Taal(Numeric):
+    registeredTaals = {}
+    '''
+    A class representing a taal. Ex. Teental, Rupaak, etc.
+    '''
+    def __init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):
+        self.beats = beats
+        self.taali = taali
+        self.khali = khali
+        if (not name and theka) or (theka and not name):
+            raise ValueError("Must specify both name and theka or none.")
+        elif not theka and not name:
+            self.id = str(beats)
+        else:
+            self.id = name
+        self.theka = theka
+        if register:
+            Taal.registeredTaals.update({self.id: self})
 
-    def __init__(self, id:Union[str, int], theka = None):
+    @property
+    def name(self):
+        return self.id
+    @property
+    def number(self):
+        return self.beats
+    @property
+    def theka(self):
+        return self.theka
 
-
+#A class representing a jati
 class Jati(Numeric):
-    pass
+    registeredJatis = {}
+    '''
+    A class representing a Jati
+    '''
+    def __init__(self, syllables:int, name:Union[str, None] = None, register = True):
+        self.syllables = syllables
+        if not name:
+            self.id = str(syllables)
+        else:
+            self.id = name
+        if register:
+            Jati.registeredJatis.update({self.id: self})
 
+    @property
+    def name(self):
+        return self.id
+    @property
+    def number(self):
+        return self.syllables
+
+#A class that represents a speed category
+class SpeedClasses:
+    registeredSpeeds = {}
+    '''
+    A class representing a Speed class
+    '''
+    def __init__(self, inClassCheck: Callable[[int], [bool]], randomGenerate:Callable[[],[int]], name:str, register:bool = True):
+        self.check = inClassCheck
+        self.generator = randomGenerate
+        self.id = name
+        if register:
+            SpeedClasses.registeredSpeeds.update({name: self})
+
+    @classmethod
+    def getSpeedClassFromBPM(cls, bpm:int) -> str:
+        for key, value in SpeedClasses.registereSpeeds.items():
+            if value.check(bpm):
+                return key
+
+#A class that represents a specific speed
 class Speed(Numeric):
-    pass
+    '''
+    Class that represents a particular speed. Ex. 62bpm
+    '''
+    def __init__(self, specifier:Union[int, str]):
+        if isinstance(specifier, str):
+            self.name = specifier
+            self.bpm = SpeedClasses[specifier].generator()
+        else:
+            self.bpm = specifier
+            self.name = SpeedClasses.getSpeedClassFromBPM(specifier)
 
-class Notation():
-    pass
+    @property
+    def name(self):
+        return self.name
+    @property
+    def number(self):
+        return self.bpm
 
+
+
+class Notation(ABC):
+
+    @abstractmethod
+    def toString(self, bol:Bol):
+        ...
+
+    def display(self, bol:Bol, fileName:str):
+        print(self.toString(bol), file = fileName)
+
+#TODO
 class Bhatkande(Notation):
     pass
 
+#TODO
 class Paluskar(Notation):
     pass
 
-class Theka(FixedSizeComposition):
-    pass
+class Bol():
+    '''
+    A class representing a bol, a collection of beats
+    '''
+    def __init__(self, beats:list[Beat]):
+        self.beats = beats
+
+    def play(self):
+        for beat in self.beats:
+            beat.play()
+
+class Beat():
+    '''
+    A class representing a collection of phrases
+    '''
+    def __init__(self, number:int, beginContinueFlag: bool, endContinueFlag: bool, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, jatiDivisions:list[list[Union[Phrase, PartialPhrase]]], speed:int):
+        self.number = number
+        self.clap = taaliKhaliOrNone
+        self.saam = saam
+        self.beginContinueFlag = beginContinueFlag
+        self.endContinueFlag = endContinueFlag
+        self.speed = speed
+        duration = 60.0/speed #In seconds
+        syllableDuration = duration/syllableCheck
+        self.multipliers = []
+        self.soundFiles = []
+        for i in range(len(jatiDivisions)):
+            self.multipliers.extend([syllableDuration/ (len(jatiDivisions[i]) * phrase.syllables * 0.25) for phrase in jatiDivisions[i]])
+            self.soundFiles.extend([phrase.soundBite.recording for phrase in jatiDivisions[i]])
+
+    def play(self):
+        for index in range(len(self.soundFiles)):
+            s = AudioSegment(self.soundFiles[i])
+            if s > desiredSyllableDuration:
+                s = s.speedup(self.multipliers[i])
+            elif currentSyllableDuration < desired SyllableDuration:
+                s = ae.speed_down(s, self.multipliers[i])
+            pydubplay(s)
+
+
 
 
 
@@ -566,23 +310,6 @@ class Fetcher:
             return newSound #The new sound will be stored in Sound.sounds, but we return it anyway for convenience
         else: #At this point, the specifier was not one of ["composite", "sequential"] and we do not know what to do
             raise ValueError("Invalid specifier passed.")
-
-    @classmethod
-    def addFileToConfig(cls, name, file):
-        '''
-        A method to add a .phrases file to the config folder and update .init
-
-        Parameters:
-            name(str): Name of the attribute to add to .init. Generally all caps
-            file(str): Path to the file
-        '''
-
-        os.rename(file, "config/" + os.path.basename(file))
-        with open("config/.init", "a") as file:
-            file.write("\n" + name + " = " + os.path.basename(file))
-
-        warnings.warn("Config files changed. If you initialized a parser module, you may need to re-initialize it to see changes.")
-
 
 
     @classmethod
@@ -698,6 +425,60 @@ class Phrase():
     def play(self):
         self.soundBite.play() #Use the Sound instance's play method to play the phrase
 
+    @classmethod
+    def createCompositePhrase(cls, mainID, componentIDs, aliases = None, soundBite = "Fetch", register = True):
+        '''
+        Creates a composite phrase given component phrases
+
+        Parameters:
+            mainID(string): The name of the phrase
+            componentIDs(list): IDs of the component phrases that make up this composite phrase
+            aliases(string): Other names for this phrase in compositions
+            soundBite(Sound or string): Either "Fetch" is sound has been preregistered, or the path to a MIDI .mid file, or a Sound object
+            register(boolean): Whether this phrase should be registered
+
+        Returns:
+        x(Phrase): The sequential phrase
+        '''
+        assert len(componentIDs) == 2, "A composite phrase must have exactly 2 component phrases"
+        assert componentIDs[0] in Phrase.registeredPhrases and componentIDs[1] in Phrase.registeredPhrases, "Must register component phrases first"
+        component1 = Phrase.registeredPhrases[componentIDs[0]]
+        component2 = Phrase.registeredPhrases[componentIDs[1]]
+        assert component1.position != component2.position and component1.position in ["baiyan", "daiyan"] and component2.position in ["baiyan", "daiyan"], "Components must be played on different drums and cannot be composite components themselves. For components played in close succession on the same drum, see registerSequentialPhrase()"
+
+        x = Phrase(mainID = mainID, syllables = max(component1.syllables, component2.syllables), position = "both drums", info = "Play the following two phrases simultaneously: \n1)" + component1.info + "\n2)" + component2.info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "composite", componentIDs), register = register)
+        if register:
+            assert mainID in Phrase.registeredPhrases, "Registering composite phrase failed."
+        return x
+
+        @classmethod
+    def createSequentialPhrase(cls, mainID, componentIDs, position, aliases = None, soundBite = "Fetch", register = True):
+        '''
+        Creates a sequential phrase given component phrases
+
+        Parameters:
+            mainID(string): The name of the phrase
+            componentIDs(list): IDs of the sequential phrases that make up this composite phrase
+            position(string): Whether this phrase is played on the baiyan, daiyan, or both
+            aliases(string): Other names for this phrase in compositions
+            soundBite(Sound or string): Either "Fetch" is sound has been preregistered, or the path to a MIDI .mid file, or a Sound object
+            register(boolean): Whether this phrase should be registered
+
+        Returns:
+        x(Phrase): The sequential phrase
+        '''
+        assert id in Phrase.registeredPhrases for id in componentIDs, "Must register component phrases first."
+        syllables = 0
+        info = "Play the following phrases in succession:"
+        for i in range(len(componentIDs)):
+            syllables += Phrase.registeredPhrases[componentIDs[i]].syllables
+            info += "\n" + str(i) + ")" + Phrase.registeredPhrases[componentIDs[i]].info
+
+        x = Phrase(mainID = mainID, syllables = syllables, position = position, info = info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "sequential", componentIDs), register = register)
+        if register:
+            assert mainID in Phrase.registeredPhrases, "Registering sequential phrase failed."
+        return x
+
 class CompositionGenerator():
     #Class that provides a static method to generate a composition
     @classmethod
@@ -808,94 +589,241 @@ class BolParser():
     PHRASE_SPLITTER = "-"
     PHRASE_JOINER_OPEN = "("
     PHRASE_JOINER_OPEN = ")"
-    def __init__(self):
-        #Register a set of predetermined starter phases. Can be edited by modifying the config/ files
-        self.initObject = Initializer()
-        with open("config/" + self.initObject.VOCAB, "r") as file0:
-            lines = file0.readlines()
-            assert lines[0].strip() == "@VocabDefine", "Initializer Object was given malformed vocab definition file. Please check config/.init"
-            for line in lines:
-                if "@" not in line:
-                    Phrase(*eval(line))
+    MARKER = "~"
 
-        with open("config/" + self.initObject.COMPOSITE, "r") as file1:
-            lines = file1.readlines()
-            assert lines[0].strip() == "@CompositeDefine", "Initializer Object was given malformed composite definition file. Please check config/.init"
-            for line in lines:
-                if "@" not in line:
-                    self.createCompositePhrase(*eval(line))
+    SYMBOLSMD = '''
+    <table>
+      <tr>
+        <th>Symbol</th>
+        <th>Description</th>
+        <th>Example + Walkthrough</th>
+      </tr>
+      <tr>
+        <td><code>|</code></td>
+        <td>This differentiates 2 beats.</td>
+        <td><code>dha S S | ge na ge</code></td>
+      </tr>
+      <tr>
+        <td><code>-</code></td>
+        <td>indicates a sequential phrase needs to be split differently when conforming to a particular jati</td>
+        <td><code>dha tere-kite | dhe tete</code>
+        <br>
+        While normally terekite would be automatically parsed as 4 syllables (as in terekite | dha ti ge ne) or 1 syllable (as in terekite dha ti dha | S ki te ta), here we need to specify it is 2 syllables to maintain Tisia Jati. This is necessary when there is no clear way to uphold the jati for the particular beat. Notice that we do not need to write tete in the second beat as te-te because it is by default 2 syllables, which along with the dhe, makes 3 syllables per beat.</td>
+      </tr>
+      <tr>
+        <td><code>[]</code></td>
+        <td>This is to group two phrases as 1 "syllable", so to speak, without creating a new sequential phrase.</td>
+        <td><code>dha ti ge | [dha ge] tere-kite</code>
+        <br>
+        This indicates that dha & ge occupy the space normally taken by one syllable, again ensuring 3 syllables per beat - the 3 syllables in the second beat are [dha ge], tere, and kite, with the latter two part of the same sequential phrase (see - symbol definition above). Technically, this is equivalent to increasing the speed for a fraction of the beat, but the speed parameter in .tabla files is only for whole number of beats.</td>
+      </tr>
+      <tr>
+        <td><code>~</code></td>
+        <td>This is to indicate a specific phrase for further checks.</td>
+        <td><code>dha ~ti ge | dha dha ti</code>
+        <br>
+        This singles out the first ti for further checks, such as those passed into the CompositionType for ensuring validity of a composition. An example of such a function would be to return <code>True</code> if the specified ti is the second syllable of its beat, and <code>False</code> otherwise.</td>
+      </tr>
+    </table>
+    '''
 
-        with open("config/" + self.initObject.SEQUENCE) as file2:
-            lines = file2.readlines()
-            assert lines[0].strip() == "@SequentialDefine", "Initializer Object was given malformed sequential definition file. Please check config/.init"
-            for line in lines:
-                if "@" not in line:
-                    self.createSequentialPhrase(*eval(line))
+    #Register bhari-khali mappings, basic vocab, composite phrases, compositions, jatis, sequences, speeds, and taals
+    vocabInitializer = [('ge', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi', ['ga', 'ghet', 'gat'], "Fetch", True),
+    ('ke', 1, 'baiyan', 'With a flat palm, lift the front fingers and lay them down again on the maidan above the shyahi', ['ki', 'ka'], "Fetch", True),
+    ('kat', 1, 'baiyan', 'With a flat palm, lift the entire hand  and lay it back down on the drum', None, "Fetch", True),
+    ('ghen', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi, like in \'ge\'. Immediately lift the hand to allow reverb.', None, "Fetch", True),
+    ('na', 1, 'daiyan', "Use the index finger to strike the kinar while keeping the middle and ring fingers on the border between the shyahi and tha maidan", None, "Fetch", True),
+    ('ta', 1, 'daiyan', "Use the ring finger to vertically strike the border between the shyahi and tha maidan. Let your index finger bounce on the kinar to create a ringing effect", None, "Fetch", True),
+    ('tin', 1, 'daiyan', "Use the index finger and gently hit the shyahi, lifting immediately afterwards to create a high-pitched ringing effect", None, "Fetch", True),
+    ('thun', 1, 'daiyan', "Use the index finger and strongly hit the shyahi, lifting immediately afterwards to create a loud high-pitched ringing effect", None, "Fetch", True),
+    ('te', 1, 'daiyan', "Use the middle and ring fingers to slap the shyahi OR use the index finger to slap the shyahi. Do not lift the hand, creating a closed sound.", ['ti', 'tit', 'tet'], "Fetch", True),
+    ('ne', 1, 'daiyan', "Use the middle, ring, and pinky fingers to gently touch the border between the kinar and maidan. Let some reverb occur.", ['re', 'ra'], "Fetch", True),
+    ('di', 1, 'daiyan', "Use all fingers to strike the shyahi, and immediately lift, leading to a ringing sound.", None, "Fetch", True),
+    ('tere', 2, 'daiyan', "Swipe your thumb and other fingers alternately on the kinar above the shyahi (with your palm on the shyahi) for a swishing sound", None, "Fetch", True),
+    ('tete', 2, 'daiyan', "Use the middle and ring fingers to slap the shyahi and then use the index finger to slap the shyahi as well. Do not lift the hand, creating a closed sound.", None, "Fetch", True),
+    ('S', 1, 'both', "Silence", None, "Fetch", True)]
+    for element in vocabInitializer:
+        Phrase(*element)
 
+    compositeInitializer = ('dha', ['ge', 'na']),
+    ('dhin', ['ge', 'tin'], ['gran']),
+    ('dhet', ['ge', 'tet'], ['dhe']),
+    ('dhere', ['ge', 'tere']),
+    ('dhete', ['ge', 'tete']),
+    ('kre', ['kat', 'te']),
+    ('kran', ['ke', 'ta'])]
+    for element in compositeInitializer:
+        Phrase.createCompositePhrase(*element)
 
-    def createCompositePhrase(mainID, componentIDs, aliases = None, soundBite = "Fetch", register = True):
-        '''
-        Creates a composite phrase given component phrases
+    sequentialInitializer = [('terekite', ['tete', 'ki', 'te'], "both"),
+    ('gadigene', ['ga', 'di', 'ge', 'ne'], "both"),
+    ('nagetete', ['na', 'ge', 'tete'], "both"),
+    ('terekite', ['tete', 'ki', 'te'], "both"),
+    ('kitetaka', ['ki', 'tete', 'ka'], "both"),
+    ('dheredhere', ['dhere', 'dhere'], "both"),
+    ('teretere', ['tere', 'tere'], "daiyan")]
+    for element in sequentialInitializer:
+        Phrase.createSequentialPhrase(*element)
 
-        Parameters:
-            mainID(string): The name of the phrase
-            componentIDs(list): IDs of the component phrases that make up this composite phrase
-            aliases(string): Other names for this phrase in compositions
-            soundBite(Sound or string): Either "Fetch" is sound has been preregistered, or the path to a MIDI .mid file, or a Sound object
-            register(boolean): Whether this phrase should be registered
+    speedInitializer = [(lambda x: x <=60, random.randint(0, 60), "Vilambit"),
+    (lambda x: x>60 and x<=120, random.randint(60,120), "Madhya"),
+    (lambda x: x>120, random.randint(120,300), "Drut")
+    ]
+    for element in speedInitializer:
+        SpeedClasses(*element)
 
-        Returns:
-        x(Phrase): The sequential phrase
-        '''
-        assert len(componentIDs) == 2, "A composite phrase must have exactly 2 component phrases"
-        assert componentIDs[0] in Phrase.registeredPhrases and componentIDs[1] in Phrase.registeredPhrases, "Must register component phrases first"
-        component1 = Phrase.registeredPhrases[componentIDs[0]]
-        component2 = Phrase.registeredPhrases[componentIDs[1]]
-        assert component1.position != component2.position and component1.position in ["baiyan", "daiyan"] and component2.position in ["baiyan", "daiyan"], "Components must be played on different drums and cannot be composite components themselves. For components played in close succession on the same drum, see registerSequentialPhrase()"
+    bhariKhaliMappings = {
+    Phrase.registeredPhrases["dha"]:Phrase.registeredPhrases["ta"],
+    Phrase.registeredPhrases["ge"] : Phrase.registeredPhrases["ke"],
+    Phrase.registeredPhrases["dhin"] : Phrase.registeredPhrases["tin"],
+    Phrase.registeredPhrases["dhete"] : Phrase.registeredPhrases["tete"],
+    Phrase.registeredPhrases["dheredhere"] : Phrase.registeredPhrases["teretere"],
+    Phrase.registeredPhrases["gran"] : Phrase.registeredPhrases["kran"]
+    }
 
-        x = Phrase(mainID = mainID, syllables = max(component1.syllables, component2.syllables), position = "both drums", info = "Play the following two phrases simultaneously: \n1)" + component1.info + "\n2)" + component2.info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "composite", componentIDs), register = register)
-        if register:
-            assert mainID in Phrase.registeredPhrases, "Registering composite phrase failed."
-        return x
+    #TODO: Add theka
+    taalInitializer = [{beats=3, name='Sadanand', taali=[1], khali=[]},
+    {beats=6, name='Carnatic Rupaak', taali=[1,3], khali=[]},
+    {beats=6, name='Dadra', taali=[1], khali=[4]},
+    {beats=7, name='Pashto', taali=[1,4,6], khali=[]},
+    {beats=7, name='Tevra', taali=[1,4,6], khali=[]},
+    {beats=7, name='Antarkrida', taali=[1,3,5], khali=[]},
+    {beats=7, name='Rupaak', taali=[4,6], khali=[1]},
+    {beats=8, name='Keherwa', taali=[1], khali=[5]},
+    {beats=8, name='Kawwali', taali=[1,5], khali=[]},
+    {beats=8, name='Jat1', taali=[1,3,7], khali=[5]},
+    {beats=8, name='Dhumali', taali=[1,3,7], khali=[5]},
+    {beats=8, name='Bhajni Theka', taali=[1], khali=[5]},
+    {beats=9, name='Matta1', taali=[1,3,7,8], khali=[5]},
+    {beats=9, name='Basant', taali=[1,2,3,4,6,8], khali=[5,7,9]},
+    {beats=9, name='Anka', taali=[1,3,7], khali=[]},
+    {beats=9, name='Jhap Sawari', taali=[1, 3, 8], khali=[6]},
+    {beats=9.5, name='Sunand', taali=[1,3,8,9], khali=[6]},
+    {beats=9.5, name='Kalawati', taali=[1,3,7.5], khali=[5]},
+    {beats=10, name='At', taali=[1,4,7], khali=[9]},
+    {beats=10, name='Sul Phaakta', taali=[1,5,7], khali=[3,9]},
+    {beats=10, name='Sulfakta', taali=[1,3,5,8], khali=[]},
+    {beats=10, name='Ukshav', taali=[1,5,7,9], khali=[3]},
+    {beats=10, name='Kapaalabhruta', taali=[1,4,7], khali=[2,6]},
+    {beats=10, name='Sul', taali=[1,5,7], khali=[3,9]},
+    {beats=10, name='Jhaptaal', taali=[1, 3, 8], khali=[6]},
+    {beats=10.5, name='Sardha Rupaak', taali=[1,5,8], khali=[]},
+    {beats=11, name='Iktaali', taali=[1,5,7]},
+    {beats=11, name='Rudra', taali=[1,3,4,5,7,8,9], khali=[]},
+    {beats=11, name='Mani', taali=[1,4,9], khali=[6]},
+    {beats=11, name='Indraleen', taali=[1,4,6,9], khali=[2]},
+    {beats=11, name='Char Taal Ki Sawari', taali=[1, 3, 7, 9, 10], khali=[5]},
+    {beats=11, name='Kumbha', taali=[1, 3, 4, 5, 7, 8, 9, 10], khali=[2, 6, 11]},
+    {beats=11, name='Ashtamangal1', taali=[1, 3, 4, 6, 7, 9, 10, 11], khali=[2, 5, 8]},
+    {beats=12, name='Uday', taali=[1,6,8], khali=[]},
+    {beats=12, name='Chautaal', taali=[1,5,9,11], khali=[3,7]},
+    {beats=12, name='Vikram', taali=[1,3,9], khali=[6]},
+    {beats=12, name='Ektaal', taali=[1,5,9,11], khali=[3,7]},
+    {beats=12, name='Khemta', taali=[1, 4, 10], khali=[7]},
+    {beats=13, name='Jai', taali=[1,3,7,11,12], khali=[5,9]},
+    {beats=13, name='Arnima', taali=[1,3,10,12], khali=[8]},
+    {beats=13, name='Lilawati', taali=[1, 5, 9, 12], khali=[]},
+    {beats=14, name='Dhamar', taali=[1,6,11], khali=[8]},
+    {beats=14, name='At', taali=[1,6,11,13], khali=[4,9]},
+    {beats=14, name='Deepchandi', taali=[1,4,11], khali=[8]},
+    {beats=14, name='Jhoomra', taali=[1,4,11], khali=[8]},
+    {beats=14, name='Ada Chautaal', taali=[1,3,7,11], khali=[5,9,13]},
+    {beats=14, name='Brahma1', taali=[1, 3, 4, 6, 7, 8, 10, 11, 12, 13], khali=[2, 5, 9,14]},
+    {beats=14, name='Pharudasta', taali=[1, 5, 9, 11, 13], khali=[3, 7]},
+    {beats=15, name='Pancham Sawari', taali=[1,4,12], khali=[8]},
+    {beats=15, name='Choti Sawari', taali=[1,5,9,13], khali=[]},
+    {beats=15, name='Gaja Jhampaa', taali=[1,5,13], khali=[9]},
+    {beats=15, name='Indra', taali=[1,5,9,11,13], khali=[]},
+    {beats=15.5, name='Yog', taali=[1,5,14], khali=[9]},
+    {beats=16, name='Aryaa', taali=[1,3,7,10,13], khali=[]},
+    {beats=16, name='Ikwai', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Chachar', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Gajarmukh', taali=[1,6,8,13], khali=[11]},
+    {beats=16, name='Teentaal', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Tilwada', taali=[1,5,13], khali=[9]},
+    {beats=16, name='HaunsVilas', taali=[1,6,11,14], khali=[8]},
+    {beats=16, name='Punjabi', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Ushakiran', taali=[1,7,11], khali=[15]},
+    {beats=16, name='Udeerna', taali=[1,8,10], khali=[]},
+    {beats=16, name='Tappe ka Taal', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Addha', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Bari Sawari', taali=[1, 5, 9, 11, 13], khali=[3, 7, 15]},
+    {beats=16, name='Jat2', taali=[1,5,13], khali=[9]},
+    {beats=16, name='Sitarkhani', taali=[1, 5, 13], khali=[9]},
+    {beats=17, name='Shikhar', taali=[1,13,15], khali=[7]},
+    {beats=17, name='Sujan Shikhar', taali=[1,3,10,13,15], khali=[7]},
+    {beats=17, name='Indraleen', taali=[1,8,13], khali=[4, 16]},
+    {beats=17, name='Dhruvataal', taali=[1,6,8,13], khali=[]},
+    {beats=17, name='Vishnu1', taali=[1, 5, 7, 11, 13, 15], khali=[]},
+    {beats=17, name='Vishnu2', taali=[1, 3, 7, 11, 13, 15], khali=[]},
+    {beats=17, name='Vishnu3', taali=[1, 3, 6, 10], khali=[14]},
+    {beats=17, name='Vishnu4', taali=[1, 5, 9, 11, 13, 15], khali=[3, 7]},
+    {beats=17, name='Churamani', taali=[1, 4, 6, 10, 14]},
+    {beats=17, name='Mayur', taali=[1, 3, 7, 13]},
+    {beats=18, name='At2', taali=[1,8,15,17], khali=[5,11]},
+    {beats=18, name='Matta2', taali=[1, 5, 7, 11, 13, 15], khali=[3, 9, 17]},
+    {beats=18, name='Lakshmi', taali=[1,2,3,5,6,7,9,10,11,12,13,14,15,16,17], khali=[4, 8, 18]},
+    {beats=18, name='Ganesh', taali=[1,5,9,13,15], khali=[]},
+    {beats=19, name='Panchanan', taali=[1,3,9,11,15], khali=[6,18]},
+    {beats=19, name='Shesh', taali=[1, 5, 9, 11, 13, 17, 18], khali=[]},
+    {beats=20, name='Abhinandan', taali=[1,5,7,11,13,15,19], khali=[]},
+    {beats=20, name='Arjun', taali=[1,5,7,11,13,15], khali=[]},
+    {beats=22, name='Ashtamangal2', taali=[1,5,7,11,13,17,19,21], khali=[]},
+    {beats=22, name='At3', taali=[1, 10, 19, 21], khali=[7,17]},
+    {beats=24, name='Chaktaal', taali=[1,7,19], khali=[13]},
+    {beats=24, name='Abhiram', taali=[1,7,10,14,19], khali=[]},
+    {beats=24, name='At4', taali=[1,3,5,9,11,15], khali=[]},
+    {beats=24, name='Kandarpa', taali=[1,3,5,9,17], khali=[13, 21]},
+    {beats=27, name='Ardhya', taali=[1,5,7,9,14,17,22,23,24,25,26,27], khali=[]},
+    {beats=28, name='Brahma2', taali=[1,5,7,11,13,15,19,21,23,25], khali=[3,9,17,27]}]
 
-    def createSequentialPhrase(mainID, componentIDs, position, aliases = None, soundBite = "Fetch", register = True):
-        '''
-        Creates a sequential phrase given component phrases
+    for element in taalInitializer:
+        Taal(**element)
 
-        Parameters:
-            mainID(string): The name of the phrase
-            componentIDs(list): IDs of the sequential phrases that make up this composite phrase
-            position(string): Whether this phrase is played on the baiyan, daiyan, or both
-            aliases(string): Other names for this phrase in compositions
-            soundBite(Sound or string): Either "Fetch" is sound has been preregistered, or the path to a MIDI .mid file, or a Sound object
-            register(boolean): Whether this phrase should be registered
+    jatiInitializer = [{syllables = 3, name = 'Tisra'},
+    {syllables = 4, name = 'Chatusra'},
+    {syllables = 5, name = 'Khanda'},
+    {syllables = 7, name = 'Mishra'}]
 
-        Returns:
-        x(Phrase): The sequential phrase
-        '''
-        assert id in Phrase.registeredPhrases for id in componentIDs, "Must register component phrases first."
-        syllables = 0
-        info = "Play the following phrases in succession:"
-        for i in range(len(componentIDs)):
-            syllables += Phrase.registeredPhrases[componentIDs[i]].syllables
-            info += "\n" + str(i) + ")" + Phrase.registeredPhrases[componentIDs[i]].info
+    for element in jatiInitializer:
+        Jati(**element)
 
-        x = Phrase(mainID = mainID, syllables = syllables, position = position, info = info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "sequential", componentIDs), register = register)
-        if register:
-            assert mainID in Phrase.registeredPhrases, "Registering sequential phrase failed."
-        return x
+    #TODO: Correct this
+    compositionsInitializer = [("Kayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
+    ("Rela", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Madhya' or speed == 'Drut')
+    ("Peshkar", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], speed == 'Vilambit' or speed == 'Madhya')
+    ("GatKayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], True)
+    ("LadiKayda", [mainTheme.bhari, mainTheme.khali, paltas.*.bhari, paltas.*.khali, tihai], True)
+    ("Gat", [content], True)
+    ("Tukda", [content], True)
+    ("GatTukda", [content], True)
+    ("Chakradar", [content.body, content.tihai], True, "x3")
+    ("FarmaisiChakradar", [content.body, content.tihai.tihai], "Maybe", "x3")
+    ("KamaaliChakradar", [content.body, content.tihai.tihai], "Maybe", "x3")
+    ("Paran", [content], True)
+    ("Aamad", [content], True)
+    ("Chalan", [content], True)
+    ("GatParan", [content], True)
+    ("Kissm", [content], True)
+    ("Laggi", [content], "Maybe")
+    ("Mohra")
+    ("Mukhda")
+    ("Rou")
+    ("Tihai")
+    ("Bedam Tihai")
+    ("Damdaar Tihai")]
 
-    def parse(self, file):
+    for element in compositionsInitializer:
+        CompositionType(**element)
+
+    @classmethod
+    def parse(cls, self, file):
         assert ".tabla" in file, "Please pass a valid .tabla file"
 
-    def getSymbolRules(self):
+    @classmethod
+    def getSymbolRules(cls, self):
         from rich.console import Console
         from rich.markdown import Markdown
         console = Console()
-        with open('Symbols.md') as f:
-            md = Markdown(f.read())
-            console.print(md)
-
-
-    def convertBhariToKhali(self, bhari):
-        pass
+        md = Markdown(BolParser.SYMBOLSMD)
+        console.print(md)
