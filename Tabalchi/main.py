@@ -251,7 +251,7 @@ class Bol():
     '''
     A class representing a bol, a collection of beats
     '''
-    def __init__(self, beats:list[Beat], notationClass:Union[Type[Notation], None]):
+    def __init__(self, beats:list[Beat], notationClass:Union[Type[Notation], None] = None):
         self.beats = beats
         self.notationClass = notationClass
         self.markedBeats = []
@@ -1033,11 +1033,23 @@ class BolParser():
             assert BeatRange.isContiguousSequence(list(jati.keys()), totalBeats)
 
         def inferJati(beat:str) -> int:
-            beat = beat.replace(PHRASE_SPLITTER, " ")
-            beat = beat.replace(MARKER, "")
-            #Find number of groupings
-            groupings = beat.count(PHRASE_JOINER_OPEN)
-            return len(beat.split(" ")) - groupings
+            newStr = ""
+            inGrouping = False
+            for char in beat:
+                if char == PHRASE_JOINER_OPEN:
+                    inGrouping = True
+                if char == PHRASE_JOINER_OPEN:
+                    inGrouping =  False
+
+                if char == " " and inGrouping:
+                    newStr += "*"
+                elif char == PHRASE_SPLITTER:
+                    newStr += " "
+                else:
+                    newStr += char
+
+            return len(newStr.split(" "))
+
 
         def getJati(beatNumber:int) -> int:
             if isinstance(jati, Jati):
@@ -1063,9 +1075,43 @@ class BolParser():
         for i in range len(beatPartition):
             beat = beatPartition[i]
             assert jati == "Infer" or inferJati(beat) == getJati(i + 1), "Provided jati for certain beats does not match actual jati"
-            rawPhrases = beat.replace(PHRASE_SPLITTER, "").replace(PHRASE_JOINER_OPEN, "").replace(PHRASE_JOINER_CLOSE, "")
-            rawPhrases = rawPhrases.split(" ")
-            markers = [1 if phrase.startswith(MARKER) else 0 for phrase in rawPhrases]
+            newStr = ""
+            inGrouping = False
+            for char in beat:
+                if char == PHRASE_JOINER_OPEN:
+                    inGrouping = True
+                if char == PHRASE_JOINER_OPEN:
+                    inGrouping =  False
+
+                if char == " " and inGrouping:
+                    newStr += "*"
+                else:
+                    newStr += char
+
+            intermediate = newStr.split(" ")
+            markers = []
+            rawPhrases = []
+            syllableCount = []
+
+            for elem in intermediate:
+                if(not elem.beginswith(PHRASE_JOINER_OPEN)):
+                    if(elem.beginswith(MARKER)):
+                        markers.append(1)
+                    else:
+                        markers.append(0)
+                    syllableCount.append(elem.count(PHRASE_SPLITTER) + 1)
+                    rawPhrases.append(Phrase.registeredPhrases[elem.replace(PHRASE_SPLITTER, "").replace(MARKER, "")])
+                else:
+                    deconstructed = (elem.replace(PHRASE_JOINER_OPEN, "").replace(PHRASE_JOINER_CLOSE, "")).split("*")
+                    for subElem in deconstructed:
+                        if(subElem.beginswith(MARKER)):
+                            markers.append(1)
+                        else:
+                            markers.append(0)
+                        syllableCount.append((subElem.count(PHRASE_SPLITTER) + 1) / len(deconstructed))
+                        rawPhrases.append(Phrase.registeredPhrases[subElem.replace(PHRASE_SPLITTER, "").replace(MARKER, "")])
+
+
             taaliKhaliOrNone = 0
             if (i + 1)%taal.beats in taal.taali:
                 taaliKhaliOrNone = 1
@@ -1075,19 +1121,9 @@ class BolParser():
             if i%taal.beats == 0:
                 saam = True
             beatSpeed = getSpeed(i + 1)
-            initializedPhraseList = []
-            for phrase in rawPhrases:
-                temp = ""
-                if phrase.startswith(MARKER):
-                    temp = phrase.replace(MARKER, "")
-                else:
-                    temp = phrase
-                initializedPhraseList.append(Phrase.registeredPhrases[temp])
-
-
-
-
-
+            phraseSyllableMapping = OrderedDict(zip(rawPhrases, syllableCount))
+            finalizedBeats.append(Beat(i + 1, taaliKhaliOrNone, saam, phraseSyllableMapping, beatSpeed, markers))
+        return Bol(finalizedBeats)
 
 
     @classmethod
