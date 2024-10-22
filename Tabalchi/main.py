@@ -516,6 +516,7 @@ class Phrase():
 
 class CompositionGenerator():
     #Class that provides a static method to generate a composition
+    #Uses standard BolParser symbols (user can modify later)
     @classmethod
     def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token: str):
         '''
@@ -533,7 +534,7 @@ class CompositionGenerator():
         warnings.warn("Execution time might be excessive depending on your hardware.")
         phraseInfo = "The following phrases are defined by the user on the tabla, along with a description of how to play them: \n" + "\n".join([key + "." + val.description for key, val in Phrase.registeredPhrases.items()])
         mainPrompt = "Using the above phrases only, compose a " + type + " in taal with name/beats " + taal + " and speed class " + speedClass + ". The composition should be in jati with name/syllables per beat " + jati + " and in the " + school + " style of playing. Components of the composition should be marked appropriately."
-        symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla", "r").read() + "\n A phrase can span more than one beat - in that case use a '-'' symbol right after the corresponding '|' and before the continuation of the phrase in the next beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
+        symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla", "r").read() + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
         end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
         prompt = phraseInfo + mainPrompt + symbolPrompt + end
         messages = [

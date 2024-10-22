@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabalchi Documentation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 20px;
+        }
+        pre {
+            max-height: 300px;
+            overflow: auto;
+            background-color: #f6f8fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <section class="section">
+        <h1 class="title">Tabalchi Documentation <img src="https://github.com/user-attachments/assets/0d47f705-74d9-43e4-91b0-a6c8806965ba" width=100/></h1>
+        <h2 class="subtitle">(C) Shreyan Mitra</h2>
+
+        <div class="box">
+            <h3 class="title is-4">Installation</h3>
+            <p>To install the Tabalchi package, use the command:</p>
+            <pre><code>$ pip install Tabalchi</code></pre><br>
+        </div>
+
+        <!-- List of classes -->
+        <div class="box">
+            <h3 class="title is-4">Classes</h3>
+
+            <!-- BeatRange Class -->
+            <div>
+                <br><h4 class="title is-5">BeatRange</h4>
+                <br>
+                <p>A class representing an interval of beats.</p>
+                <br>
+                <br><h5 class="title is-6">Parameters</h5>
+                <ul>
+                    <li><b>begin (int):</b> The start beat of the beat range, inclusive.</li>
+                    <li><b>end (int):</b> The end beat of the beat range, exclusive.</li>
+                </ul>
+                <br>
+                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <ul>
+                    <li>
+                        <b>__init__(self, begin:int, end:int):</b>
+                        <p>Initializes a beat range with the given start (inclusive) and end (exclusive).</p>
+                    </li>
+
+                    <li>
+                        <b>fromString(self, spec:str) -> BeatRange:</b>
+                        <p>Returns a BeatRange object from a string specification.</p>
+                    </li>
+
+                    <li>
+                        <b>range(self) -> int:</b>
+                        <p>Returns the number of beats represented by this BeatRange.</p>
+                    </li>
+
+                    <li>
+                        <b>isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:</b>
+                        <p>Determines if the provided beat ranges cover a contiguous sequence from 1 to the total number of beats.</p>
+                    </li>
+
+                    <li>
+                        <b>getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:</b>
+                        <p>Returns a sorted list of beat ranges between a given beginning and end beat.</p>
+                    </li>
+                </ul>
+
+                <br><h5 class="title is-6">Full Code</h5>
+                <br>
+                <pre><code>
+# A class representing an interval of beats
+class BeatRange():
+    '''
+    Class representing a beat range
+
+    Parameters:
+        begin(int): The start beat of the beat range, inclusive
+        end(int): The end beat of the beat range, exclusive
+    '''
+    def __init__(self, begin:int, end:int):
+        assert begin < end, "BeatRange end beat must be greater than begin beat"
+        self.begin = begin
+        self.end = end
+
+    @classmethod
+    def fromString(self, spec:str) -> BeatRange:
+        numbers = spec.split("-")
+        num1 = int(numbers[0])
+        num2 = int(numbers[1])
+        return BeatRange(num1, num2)
+
+    def range(self) -> int:
+        '''
+        Returns the number of beats represented by this beat range
+        '''
+        return self.end - self.begin
+
+    @classmethod
+    def isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:
+        '''
+        Returns if a particular beat range convers all beats from 1 to the given total number of beats
+
+        Parameters:
+            ranges(List[BeatRange]): A list of beat ranges
+            totalBeats(int): The total number of beats in the sequence to check the ranges against
+        '''
+        ranges = sorted(ranges, lambda range: range.begin)
+        for i in range(1, len(ranges)):
+            if ranges[i].begin != ranges[i-1].end:
+                return False
+        if(ranges[-1].end < totalBeats or ranges[0].begin != 1):
+            return False
+        return True
+
+    @classmethod
+    def getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:
+        '''
+        Returns the ranges, in sorted order, that fall between a given begin and end beat
+
+        Parameters:
+            ranges(List[BeatRange]): A list of beat ranges to choose from
+            begin(int): The start beat of the desired sequence
+            end(int): The end beat of the desired sequence
+        '''
+        subsequence = []
+        for i in range(len(ranges)):
+            range = ranges[i]
+            if range.begin >= begin and range.end <= end:
+                subsequence.append(range)
+            elif range.begin >= begin and range.end > end:
+                subsequence.append(BeatRange(range.begin, end))
+            elif range.begin < begin and range.end <= end:
+                subsequence.append(BeatRange(begin, range.end))
+            else:
+                subsequence.append(BeatRange(begin, end))
+        return sorted(subsequence)
+                </code></pre><br>
+                <br>
+            </div>
+
+            <!-- Add documentation for other classes and their methods here -->
+
+            <!-- CompositionType Class -->
+            <div>
+                <br><h4 class="title is-5">CompositionType</h4>
+                <p>A class representing a composition type. Ex. Kayda, Rela, etc.</p>
+
+                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+                <ul>
+                    <li><b>registeredTypes:</b> A class variable keeping track of the list of registered composition types.</li>
+                </ul>
+
+                <br><h5 class="title is-6">Parameters</h5>
+                <ul>
+                    <li><b>name (str):</b> The name of the composition type.</li>
+                    <li><b>schema (dict):</b> The structure of the components field of the .tabla file.</li>
+                    <li><b>validityCheck (Callable[[Bol],[bool]]):</b> A function that checks if a given Bol is of the considered composition type.</li>
+                    <li><b>assembler (Callable[[SimpleNamespace], [list[str]]]):</b> Instructions on how to assemble components of the composition.</li>
+                    <li><b>register (bool):</b> Whether to register the composition type.</li>
+                </ul>
+
+                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <ul>
+                    <li>
+                        <b>__init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):</b>
+                        <p>Initializes a CompositionType object with the given parameters.</p>
+                    </li>
+                </ul>
+
+                <br><h5 class="title is-6">Full Code</h5>
+                <pre><code>
+# A class representing a composition type. Ex. Kayda, Rela, etc.
+# For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
+# Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
+class CompositionType():
+    registeredTypes = {} # A class variable keeping track of the list of registered composition types
+
+    '''
+    A class to represent a composition type
+
+    Parameters:
+        name(str): The name of the composition type. Ex. Kayda, Rela, etc.
+        schema(dict): The structure of the components field of the .tabla file
+        validityCheck(Callable[[Bol],[bool]]): A function that returns whether a given Bol is of the composition type being considered
+        assembler(Callable[[SimpleNamespace], [list[str]]]): Gives instructions on how to put together the disjointed components of the composition
+        register(bool): Whether to register the composition type (i.e. to save it for future use). By default, True
+    '''
+    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):
+        self.name = name
+        self.schema = schema
+        self.assembler = assembler
+        def preValidityCheck(bol:dict) -> bool:
+            try:
+                validate(instance = bol, schema = schema)
+                return True
+            except Exception:
+                return False
+
+        self.preCheck = preValidityCheck
+        self.mainCheck = validityCheck
+        if register:
+            CompositionType.registeredTypes.update({name: self})
+                </code></pre><br>
+            </div>
+
+            <!-- Numeric Class -->
+            <div>
+                <br><h4 class="title is-5">Numeric</h4>
+                <p>A base class representing something that has an associated number. Implemented as an abstract base class (ABC).</p>
+
+                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <ul>
+                    <li>
+                        <b>name (abstract property):</b>
+                        <p>A property that subclasses must implement, representing the name of the numeric entity.</p>
+                    </li>
+                    <li>
+                        <b>number (abstract property):</b>
+                        <p>A property that subclasses must implement, representing the number associated with the entity.</p>
+                    </li>
+                </ul>
+
+                <br><h5 class="title is-6">Full Code</h5>
+                <pre><code>
+# A class representing something with an associated number. Ex. Taal, Jati, Speed, etc.
+class Numeric(ABC):
+    '''
+    A class representing something that has an associated number
+    '''
+    @property
+    @abstractmethod
+    def name(self):
+        ...
+
+    @property
+    @abstractmethod
+    def number(self):
+        ...
+                </code></pre><br>
+            </div>
+
+            <!-- Taal Class -->
+            <div>
+                <br><h4 class="title is-5">Taal</h4>
+                <p>A class representing a Taal. Ex. Teental, Rupaak, etc.</p>
+
+                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+                <ul>
+                    <li><b>registeredTaals:</b> A class variable keeping track of the list of registered taals.</li>
+                </ul>
+
+                <br><h5 class="title is-6">Parameters</h5>
+                <ul>
+                    <li><b>beats (int):</b> The number of beats in the taal.</li>
+                    <li><b>taali (list[int]):</b> A list of beats where the clap is marked.</li>
+                    <li><b>khali (list[int]):</b> A list of beats where the wave (khali) is marked.</li>
+                    <li><b>name (Union[str, None]):</b> The name of the taal, defaults to number of beats if not provided.</li>
+                    <li><b>theka (Union[str, None]):</b> The standard theka for the taal.</li>
+                    <li><b>register (bool):</b> Whether to register the taal (default: True).</li>
+                </ul>
+
+                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <ul>
+                    <li>
+                        <b>__init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):</b>
+                        <p>Initializes a Taal object with the given parameters and registers it if specified.</p>
+                    </li>
+                    <li>
+                        <b>name (property):</b>
+                        <p>Returns the name of the taal.</p>
+                    </li>
+                    <li>
+                        <b>number (property):</b>
+                        <p>Returns the number of beats in the taal.</p>
+                    </li>
+                    <li>
+                        <b>theka (property):</b>
+                        <p>Returns the theka of the taal.</p>
+                    </li>
+                </ul>
+
+                <br><h5 class="title is-6">Full Code</h5>
+                <pre><code>
+# A class representing a Taal
+class Taal(Numeric):
+    registeredTaals = {}
+    '''
+    A class representing a taal. Ex. Teental, Rupaak, etc.
+    '''
+    def __init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):
+        self.beats = beats
+        self.taali = taali
+        self.khali = khali
+        if not name:
+            self.id = str(beats)
+        else:
+            self.id = name
+        self.theka = theka
+        if register:
+            Taal.registeredTaals.update({self.id: self})
+
+    @property
+    def name(self):
+        return self.id
+
+    @property
+    def number(self):
+        return self.beats
+
+    @property
+    def theka(self):
+        return self.theka
+                </code></pre><br>
+            </div>
+
+            <!-- Documentation for other classes will continue here -->
+
+            <!-- Jati Class -->
+            <div>
+                <br><h4 class="title is-5">Jati</h4>
+                <p>A class representing a Jati, which denotes the number of syllables per beat.</p>
+
+                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+                <ul>
+                    <li><b>registeredJatis:</b> A class variable keeping track of the list of registered Jatis.</li>
+                </ul>
+
+                <br><h5 class="title is-6">Parameters</h5>
+                <ul>
+                    <li><b>syllables (int):</b> The number of syllables in this Jati.</li>
+                    <li><b>name (Union[str, None]):</b> The name of the Jati, defaults to number of syllables if not provided.</li>
+                    <li><b>register (bool):</b> Whether to register the Jati (default: True).</li>
+                </ul>
+
+                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <ul>
+                    <li>
+                        <b>__init__(self, syllables:int, name:Union[str, None] = None, register = True):</b>
+                        <p>Initializes a Jati object with the given parameters and registers it if specified.</p>
+                    </li>
+                    <li>
+                        <b>name (property):</b>
+                        <p>Returns the name of the Jati.</p>
+                    </li>
+                    <li>
+                        <b>number (property):</b>
+                        <p>Returns the number of syllables in the Jati.</p>
+                    </li>
+                </ul>
+
+                <br><h5 class="title is-6">Full Code</h5>
+                <pre><code>
+# A class representing a jati
+class Jati(Numeric):
+    registeredJatis = {}
+    '''
+    A class representing a Jati
+    '''
+    def __init__(self, syllables:int, name:Union[str, None] = None, register = True):
+        self.syllables = syllables
+        if not name:
+            self.id = str(syllables)
+        else:
+            self.id = name
+        if register:
+            Jati.registeredJatis.update({self.id: self})
+
+    @property
+    def name(self):
+        return self.id
+
+    @property
+    def number(self):
+        return self.syllables
+                </code></pre><br>
+            </div>
+            <!-- SpeedClasses Class -->
+           <div>
+               <br><h4 class="title is-5">SpeedClasses</h4>
+               <p>A class representing different categories of speed for a composition.</p>
+
+               <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+               <ul>
+                   <li><b>registeredSpeeds:</b> A class variable keeping track of the list of registered speed classes.</li>
+               </ul>
+
+               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+               <ul>
+                   <li>
+                       <b>__init__(self, inClassCheck: Callable[[int], bool], randomGenerate: Callable[[], int], name: str, register: bool = True):</b>
+                       <p>Initializes a speed class with checks and generators for speed.</p>
+                   </li>
+                   <li>
+                       <b>getSpeedClassFromBPM(cls, bpm: int) -> str:</b>
+                       <p>Returns the name of the speed class based on beats per minute (BPM).</p>
+                   </li>
+               </ul>
+
+               <br><h5 class="title is-6">Full Code</h5>
+               <pre><code># A class that represents a speed category
+class SpeedClasses:
+   registeredSpeeds = {}
+   '''
+   A class representing a Speed class
+   '''
+   def __init__(self, inClassCheck: Callable[[int], bool], randomGenerate:Callable[[], int], name:str, register:bool = True):
+       self.check = inClassCheck
+       self.generator = randomGenerate
+       self.id = name
+       if register:
+           SpeedClasses.registeredSpeeds.update({name: self})
+
+   @classmethod
+   def getSpeedClassFromBPM(cls, bpm:int) -> str:
+       for key, value in SpeedClasses.registeredSpeeds.items():
+           if value.check(bpm):
+               return key
+               </code></pre><br>
+           </div>
+
+           <!-- Speed Class -->
+           <div>
+               <br><h4 class="title is-5">Speed</h4>
+               <p>A class representing a specific speed in beats per minute (BPM).</p>
+
+               <br><h5 class="title is-6">Parameters</h5>
+               <ul>
+                   <li><b>specifier (Union[int, str]):</b> Either an integer for BPM or a string specifying the speed class.</li>
+               </ul>
+
+               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+               <ul>
+                   <li>
+                       <b>__init__(self, specifier: Union[int, str]):</b>
+                       <p>Initializes a Speed object based on the specified BPM or speed class.</p>
+                   </li>
+                   <li>
+                       <b>name (property):</b>
+                       <p>Returns the name of the speed class.</p>
+                   </li>
+                   <li>
+                       <b>number (property):</b>
+                       <p>Returns the BPM.</p>
+                   </li>
+               </ul>
+
+               <br><h5 class="title is-6">Full Code</h5>
+               <pre><code># A class that represents a specific speed
+class Speed(Numeric):
+   '''
+   Class that represents a particular speed. Ex. 62bpm
+   '''
+   def __init__(self, specifier:Union[int, str]):
+       if isinstance(specifier, str):
+           self.name = specifier
+           self.bpm = SpeedClasses[specifier].generator()
+       else:
+           self.bpm = specifier
+           self.name = SpeedClasses.getSpeedClassFromBPM(specifier)
+
+   @property
+   def name(self):
+       return self.name
+
+   @property
+   def number(self):
+       return self.bpm
+               </code></pre><br>
+           </div>
+
+           <!-- Notation Class -->
+           <div>
+               <br><h4 class="title is-5">Notation</h4>
+               <p>An abstract base class for all types of notations.</p>
+
+               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+               <ul>
+                   <li>
+                       <b>toString(cls, bol: Bol):</b>
+                       <p> An abstract method to be implemented by subclasses to convert a Bol to string.</p>
+                   </li>
+                   <li>
+                       <b>display(cls, bol: Bol, fileName: str):</b>
+                       <p>Displays the notation to a specified file.</p>
+                   </li>
+               </ul>
+
+               <br><h5 class="title is-6">Full Code</h5>
+               <pre><code>class Notation(ABC):
+   VALID_NOTATIONS = ["Bhatkande", "Paluskar"]
+
+   @classmethod
+   @abstractmethod
+   def toString(self, bol:Bol):
+       ...
+
+   @classmethod
+   def display(cls, bol:Bol, fileName:str):
+       print(Notation.toString(bol), file=fileName)
+               </code></pre><br>
+           </div>
+
+           <!-- Bol Class -->
+           <div>
+               <br><h4 class="title is-5">Bol</h4>
+               <p>A class representing a Bol, which is a collection of beats in a tabla composition.</p>
+
+               <br><h5 class="title is-6">Parameters</h5>
+               <ul>
+                   <li><b>beats (list[Beat]):</b> A list of Beat objects that constitute the bol.</li>
+                   <li><b>notationClass (Union[Type[Notation], None]):</b> The notation class used for displaying the bol.</li>
+               </ul>
+
+               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+               <ul>
+                   <li>
+                       <b>__init__(self, beats: list[Beat], notationClass: Union[Type[Notation], None] = None):</b>
+                       <p>Initializes a Bol object with the specified beats and optional notation.</p>
+                   </li>
+                   <li>
+                       <b>play(self):</b>
+                       <p>Plays the entire Bol composition.</p>
+                   </li>
+                   <li>
+                       <b>write(self, filename: str, notationClass: Union[Type[Notation], None]):</b>
+                       <p> Writes the Bol to a file using the desired notation.</p>
+                   </li>
+               </ul>
+
+               <br><h5 class="title is-6">Full Code</h5>
+               <pre><code>class Bol():
+   '''
+   A class representing a bol, a collection of beats
+   '''
+   def __init__(self, beats:list[Beat], notationClass:Union[Type[Notation], None] = None):
+       self.beats = beats
+       self.notationClass = notationClass
+       self.markedBeats = []
+       self.markedPhrases = []
+       for beat in beats:
+           for i in range(len(beat.phrases.keys())):
+               lst = list(beat.phrases.keys())
+               if(beat.markers[i] == 1):
+                   self.markedBeats.append(beat)
+                   self.markedPhrases.append(lst[i])
+
+   def play(self):
+       for beat in self.beats:
+           beat.play()
+
+   def write(self, filename:str, notationClass:Union[Type[Notation], None]):
+       if notationClass is not None:
+           notationClass.display(self, filename)
+       elif self.notationClass is not None:
+           self.notationClass.display(self, filename)
+       else:
+           raise ValueError("No Notation object found to use.")
+               </code></pre><br>
+           </div>
+
+           <!-- Further documentation for the remaining classes -->
+
+           <!-- Beat Class -->
+           <div>
+               <br><h4 class="title is-5">Beat</h4>
+               <p>A class representing a collection of phrases in a beat.</p>
+
+               <br><h5 class="title is-6">Parameters</h5>
+               <ul>
+                   <li><b>number (int):</b> The number of the beat.</li>
+                   <li><b>taaliKhaliOrNone (Literal[-1,0,1]):</b> Indicator for clapped (1), waved (0), or neutral (-1).</li>
+                   <li><b>saam (bool):</b> Indicates if this is a starting beat.</li>
+                   <li><b>phrases (OrderedDict[Phrase, int]):</b> Phrases present in this beat with associated syllables.</li>
+                   <li><b>speed (int):</b> The speed of the beat in BPM.</li>
+                   <li><b>markers (list[Literal[0,1]]):</b> Markers indicating noteworthy phrases within the beat.</li>
+               </ul>
+
+               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+               <ul>
+                   <li>
+                       <b>__init__(...):</b>
+                       <p>Initializes a Beat object with the specified parameters.</p>
+                   </li>
+                   <li>
+                       <b>play(self):</b>
+                       <p>Plays the sound files corresponding to the phrases in the beat.</p>
+                   </li>
+               </ul>
+
+               <br><h5 class="title is-6">Full Code</h5>
+               <pre><code>class Beat():
+                 '''
+    A class representing a collection of phrases
+    '''
+    def __init__(self, number:int, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, phrases:OrderedDict[Phrase, int], speed:int, markers:list[Literal[0,1]]):
+        self.number = number
+        assert len(markers) == len(phrases.keys()), "Invalid length for marker array"
+        self.markers = markers
+        self.clap = taaliKhaliOrNone
+        self.saam = saam
+        self.speed = speed
+        duration = 60.0/speed #In seconds (this is the duration of the entire beat)
+        jati = 0
+        for _,val in phrases.items():
+            jati += val
+        syllableDuration = duration/jati #This is duration of a specific segment of the beat
+        self.multipliers = []
+        self.soundFiles = []
+        for phrase, syllables in phrases.items():
+            self.multipliers.append((syllables*1.0)/phrase.syllables) * (syllableDuration/0.25)) #Since, in the original recording, one syllable = 0.25 seconds
+            self.soundFiles.append(phrase.soundBite.recording)
+        self.phrases = phrases
+
+    def play(self):
+        for index in range(len(self.soundFiles)):
+            s = AudioSegment(self.soundFiles[i])
+            if self.multipliers[i] >= 1:
+                s = s.speedup(self.multipliers[i])
+            else:
+                s = ae.speed_down(s, self.multipliers[i])
+            pydubplay(s)
+                    </code></pre><br>
+                </div>
+
+                <!-- Fetcher Class -->
+                <div>
+                    <br><h4 class="title is-5">Fetcher</h4>
+                    <p>A class containing static methods to fetch sounds and Variables (Selected if too many to write).</p>
+
+                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                    <ul>
+                        <li>
+                            <b>fetch(cls, id, specifier=None, componentIDs=None) -> Sound:</b>
+                            <p>Fetches a sound object given its identifier, or synthesizes it from components if necessary.</p>
+                        </li>
+                        <li>
+                            <b>addRecording(cls, file):</b>
+                            <p>Adds an audio file recording to the recordings folder.</p>
+                        </li>
+                    </ul>
+
+                    <br><h5 class="title is-6">Full Code</h5>
+                    <pre><code>class Fetcher:
+    #Class that contains several static methods involving fetching sounds and Variables (Selected if too many to write)
+    @classmethod
+    def fetch(cls, id, specifier = None, componentIDs = None) -> Sound:
+        '''
+        Fetch the Sound object given a phrase identifier, or synthesize it from componentIDs given a specifier
+
+        Parameters:
+            id(string): The identifier for the sound
+            specifier(string or None): If the sound does not exist and needs to be specified, whether the phrase is a composite or sequential phrase
+            componentIDs(list[string] or None): A list of the identifiers making up a composite or sequential phrases
+
+        Returns:
+            newSound (Sound) OR oldSound (Sound): The Sound instance representing the given id
+        '''
+        oldSound = Sound.sounds.get(id)
+        if oldSound:
+            return oldSound
+        elif not specifier:
+            raise ValueError("Did not find soundbite. Have you preregistered the id? Otherwise, you should just pass the soundBite when initializing the phrase.")
+        elif specifier == "composite":
+            assert componentIDs, "Need to specify component ids for composite phrases."
+            newSound = Sound(id, Sound.merge(Sound.sounds.get(c) for c in componentIDs))
+            return newSound
+        elif specifier == "sequential":
+            newSound = Sound(id, Sound.join(Sound.sounds.get(c) for c in componentIDs))
+            return newSound
+
+    @classmethod
+    def addRecording(cls, file):
+        '''
+        A method to add an audio file recording to the recordings folder.
+            file(str): Path to MIDI file
+        '''
+        os.rename(file, "recordings/" + os.path.basename(file))
+                    </code></pre><br>
+                </div>
+
+                <!-- Continue documenting remaining classes similarly -->
+
+                <!-- Sound Class -->
+                <div>
+                    <br><h4 class="title is-5">Sound</h4>
+                    <p>A class representing a soundbite associated with a phrase on the tabla.</p>
+
+                    <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+                    <ul>
+                        <li><b>sounds (dict):</b> Stores all instantiated sounds.</li>
+                    </ul>
+
+                    <br><h5 class="title is-6">Parameters</h5>
+                    <ul>
+                        <li><b>id (string):</b> The unique identifier of the soundbite.</li>
+                        <li><b>recording (string):</b> The file name of an audio file in the recordings folder.</li>
+                    </ul>
+
+                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                    <ul>
+                        <li>
+                            <b>__init__(self, id, recording):</b>
+                            <p>Initializes a Sound object with the specified ID and recording file.</p>
+                        </li>
+                        <li>
+                            <b>play(self):</b>
+                            <p>Plays the sound represented by this Sound object.</p>
+                        </li>
+                        <li>
+                            <b>merge(cls, sounds) -> str:</b>
+                            <p>For composite sounds, plays all sounds simultaneously and returns the new file name.</p>
+                        </li>
+                        <li>
+                            <b>join(cls, sounds) -> str:</b>
+                            <p>For sequential sounds, plays all sounds one after the other and returns the new file name.</p>
+                        </li>
+                    </ul>
+
+                    <br><h5 class="title is-6">Full Code</h5>
+                    <pre><code>class Sound():
+    sounds = {}
+    '''
+    Class that represents the soundbite associated with a particular phrase
+
+    Class Variables (Selected if too many to write):
+        sounds(dict): stores all instantiated sounds
+
+    Parameters:
+        id(string): The unique identifier of the soundbite, typically the name of the associated phrase
+        recording(string): The file name of a audio file in the recordings/ folder. The reocrding must be 0.25 second per syllable, i.e. equivalent to playing Chatusra Jati at 60 bpm
+    '''
+    def __init__(self, id, recording):
+        self.id = id
+        self.recording = "recordings/" + recording
+        Sound.sounds.update({id: self})
+
+    def play(self):
+        '''
+        Plays the sound represented by this Sound object
+        '''
+        playsound(self.recording)
+
+    @classmethod
+    def merge(cls, sounds) -> str:
+        '''
+        For composite sounds, play all the sounds simultaneously
+        '''
+        assert len(sounds) > 1, "More than 1 sound must be provided to merge"
+        mergedSound = AudioSegment.from_file(sounds[0].recording)
+        fileName = sounds[0].id
+        for i in range(1, len(sounds)):
+            mergedSound = mergedSound.overlay(AudioSegment.from_file(sounds[i].recording), position = 0)
+            fileName += "+" + sounds[i].id
+
+            fileName = "recordings/" + fileName + ".m4a"
+            mergedSound.export(fileName, format = "ipod")
+            return fileName
+
+        @classmethod
+        def join(cls, sounds) -> str:
+            '''
+            For sequential sounds, play all the sounds one after the other, in the order given
+
+            Parameters:
+            sounds(list[Sound]): the individual component sounds to play
+
+            Returns:
+            newRecording(string): An audio file containing the combination requested
+            '''
+            assert len(sounds) > 1, "More than 1 sound must be provided to join"
+            mergedSound = AudioSegment.from_file(sounds[0].recording)
+            fileName = sounds[0].id
+            for i in range(1, len(sounds)):
+                mergedSound = mergedSound + AudioSegment.from_file(sounds[i].recording)
+                fileName += sounds[i].id
+            fileName = "recordings/" + fileName + ".m4a"
+            mergedSound.export(fileName, format = "ipod")
+            return fileName
+                        </code></pre><br>
+                    </div>
+
+                    <!-- Phrase Class -->
+                    <div>
+                        <br><h4 class="title is-5">Phrase</h4>
+                        <p>A class representing a phrase on the tabla.</p>
+
+                        <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
+                        <ul>
+                            <li><b>registeredPhrases:</b> The phrases that have been registered so far.</li>
+                        </ul>
+
+                        <br><h5 class="title is-6">Parameters</h5>
+                        <ul>
+                            <li><b>mainID (string):</b> The name of the phrase.</li>
+                            <li><b>syllables (int):</b> Number of syllables in this phrase.</li>
+                            <li><b>position (string):</b> Position where this phrase is played (baiyan, daiyan, or both).</li>
+                            <li><b>info (string):</b> Information about how to play this phrase.</li>
+                            <li><b>aliases (Optional[List[str]]):</b> Other names for this phrase in compositions.</li>
+                            <li><b>soundBite (Union[str, Sound]):</b> Either "Fetch" if sound is preregistered or a path/Sound object.</li>
+                            <li><b>register (bool):</b> Whether this phrase should be registered.</li>
+                        </ul>
+
+                        <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                        <ul>
+                            <li>
+                                <b>__init__(self, mainID, syllables=1, position='baiyan', info='No info provided', aliases=None, soundBite='Fetch', register=True):</b>
+                                <p>Initializes a Phrase object with the specified parameters and registers it if specified.</p>
+                            </li>
+                            <li>
+                                <b>play(self):</b>
+                                <p>Plays the sound associated with this Phrase object.</p>
+                            </li>
+                            <li>
+                                <b>createCompositePhrase(cls, mainID, componentIDs, aliases=None, soundBite='Fetch', register=True):</b>
+                                <p>Creates a composite Phrase given component phrases.</p>
+                            </li>
+                            <li>
+                                <b>createSequentialPhrase(cls, mainID, componentIDs, position, aliases=None, soundBite='Fetch', register=True):</b>
+                                <p>Creates a sequential Phrase given component phrases.</p>
+                            </li>
+                        </ul>
+
+                        <br><h5 class="title is-6">Full Code</h5>
+                        <pre><code>class Phrase():
+        registeredPhrases = {}  # The phrases that have been registered so far
+
+        '''
+        Class that represents a phrase on the tabla
+        '''
+        def __init__(self, mainID, syllables=1, position='baiyan', info='No info provided', aliases=None, soundBite='Fetch', register=True):
+            if not isinstance(soundBite, Sound) and soundBite != "Fetch":
+                soundBite = Sound(mainID, soundBite)
+            mainID = mainID.lower()
+            self.ids = [mainID]
+            if aliases:
+                self.ids += aliases
+            self.description = f"Phrase: {self.ids}\nPlayed on {position}.\n{info}\nNo. of syllables: {syllables}"
+            self.syllables = syllables
+            self.position = position
+            self.info = info
+            self.soundBite = soundBite if soundBite != "Fetch" else Fetcher.fetch(mainID)
+            if register:
+                for id in self.ids:
+                    Phrase.registeredPhrases.update({id: self})
+
+        def __repr__(self):
+            return str(self.ids[0])
+
+        def play(self):
+            self.soundBite.play()
+
+        @classmethod
+        def createCompositePhrase(cls, mainID, componentIDs, aliases=None, soundBite='Fetch', register=True):
+            '''
+            Creates a composite phrase
+
+            Parameters:
+            componentIDs(list): IDs of the component phrases that make up this composite phrase
+            '''
+            assert len(componentIDs) == 2, "A composite phrase must have exactly 2 component phrases"
+            component1, component2 = map(Phrase.registeredPhrases.get, componentIDs)
+            assert component1.position != component2.position and component1.position in ["baiyan", "daiyan"] and component2.position in ["baiyan", "daiyan"], "Components must be played on different drums"
+            x = cls(mainID=mainID,
+                    syllables=max(component1.syllables, component2.syllables),
+                    position="both drums",
+                    info=f"Play the following two phrases simultaneously: \n1) {component1.info}\n2) {component2.info}",
+                    aliases=aliases,
+                    soundBite=soundBite if soundBite else Fetcher.fetch(mainID, "composite", componentIDs),
+                    register=register
+            )
+            return x
+
+        @classmethod
+        def createSequentialPhrase(cls, mainID, componentIDs, position, aliases=None, soundBite='Fetch', register=True):
+            '''
+            Creates a sequential phrase
+
+            Parameters:
+            componentIDs(list): IDs of the sequential phrases that make up this composite phrase
+            '''
+            assert all(id in Phrase.registeredPhrases for id in componentIDs), "Must register component phrases first."
+            syllables = sum(Phrase.registeredPhrases[id].syllables for id in componentIDs)
+            info = "Play the following phrases in succession:" + "".join(
+                f"\n{i}) {Phrase.registeredPhrases[componentIDs[i]].info}" for i in range(len(componentIDs)))
+            x = cls(mainID=mainID,
+                    syllables=syllables,
+                    position=position,
+                    info=info,
+                    aliases=aliases,
+                    soundBite=soundBite if soundBite else Fetcher.fetch(mainID, "sequential", componentIDs),
+                    register=register
+            )
+            return x
+                        </code></pre><br>
+                    </div>
+
+                    <!-- Continue documenting remaining classes similarly -->
+
+                    <!-- CompositionGenerator Class -->
+                    <div>
+                        <br><h4 class="title is-5">CompositionGenerator</h4>
+                        <p>A class that provides static methods for generating compositions using the Llama model.</p>
+
+                        <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                        <ul>
+                            <li>
+                                <b>generate(cls, type:str, taal:Union[str, int], speedClass:str, jati:Union[str, int], school:str, token:str):</b>
+                                <p>Generates a composition given parameters using the Llama model available on HuggingFace.</p>
+                            </li>
+                        </ul>
+
+                        <br><h5 class="title is-6">Full Code</h5>
+                        <pre><code>class CompositionGenerator():
+        # Class that provides a static method to generate a composition
+        @classmethod
+        def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token: str):
+            '''
+            A method that generates a composition given parameters using the Llama model available on HuggingFace
+            '''
+            warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
+            warnings.warn("Execution time might be excessive depending on your hardware.")
+            phraseInfo = "The following phrases are defined by the user on the tabla, along with a description of how to play them: \n" + "\n".join([key + "." + val.description for key, val in Phrase.registeredPhrases.items()])
+            mainPrompt = "Using the above phrases only, compose a " + type + " in taal with name/beats " + taal + " and speed class " + speedClass + ". The composition should be in jati with name/syllables per beat " + jati + " and in the " + school + " style of playing. Components of the composition should be marked appropriately."
+            symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla, "r").read() + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
+        end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
+        prompt = phraseInfo + mainPrompt + symbolPrompt + end
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        pipe = pipeline("text-generation", model="meta-llama/Meta-Llama-3-70B-Instruct", token = token, torch_dtype=torch.float16, device_map="auto")
+        return pipe(messages, do_sample = True, num_return_sequences = 1, eos_token_id = pipe.tokenizer.eos_token_id, return_full_text = False)[0]['generated_text']
+                    </code></pre><br>
+                </div>
+
+                <!-- AudioToBolConvertor Class -->
+                <div>
+                    <br><h4 class="title is-5">AudioToBolConvertor</h4>
+                    <p>A class providing static methods to transcribe a bol from an audio recording.</p>
+
+                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                    <ul>
+                        <li>
+                            <b>convert(cls, recording:str, speed:int, jati:int) -> str:</b>
+                            <p>Generates the bol transcription from an audio recording.</p>
+                        </li>
+                        <li>
+                            <b>getMostSimilarSound(cls, snippet, from:Dict[str, str]) -> str:</b>
+                            <p>Gets the most similar sounding phrase to a given audio snippet.</p>
+                        </li>
+                    </ul>
+
+                    <br><h5 class="title is-6">Full Code</h5>
+                    <pre><code>class AudioToBolConvertor():
+    # Class that provides a static method to transcribe a bol given the recording of a composition
+    @classmethod
+    def convert(cls, recording:str, speed:int, jati:int) -> str:
+        '''
+        A method that generates the bol given an audio recording
+        '''
+        warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
+        currentSyllableDuration = 60.0/(speed*jati)
+        desiredSyllableDuration = 0.25
+        sound = AudioSegment.from_file(recording)
+        if currentSyllableDuration > desiredSyllableDuration:
+            sound = sound.speedup(currentSyllableDuration / desiredSyllableDuration)
+        elif currentSyllableDuration < desiredSyllableDuration:
+            sound = ae.speed_down(sound, currentSyllableDuration / desiredSyllableDuration)
+        # Parse the audio for every 0.25 second snippet, comparing it to known recordings
+        recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases.items()}
+        bolString = ""
+        marker = 0
+        while marker < sound.duration_seconds * 1000:
+            add = cls.getMostSimilarSound(snippet=sound[marker: marker + 250], from=recordings)
+            marker += Phrase.registeredPhrases[add].syllables * 250
+            bolString += add
+        return bolString
+
+    @classmethod
+    def getMostSimilarSound(cls, snippet, from:Dict[str, str]) -> str:
+        '''
+        Gets the most similar sounding bol to a given audio snippet
+        '''
+        snippet.export("snippetTemp", format = "m4a")
+        _, encoded = acoustid.fingerprint_file("snippetTemp")
+        fingerprint, _ = chromaprint.decode_fingerprint(encoded)
+        references = {}
+        for key, val in from.items():
+            _, e = acoustid.fingerprint_file(key)
+            f, _ = chromaprint.decode_fingerprint(e)
+            references[val] = f
+
+        from operator import xor
+        maxSimilarity = 0
+        mostSimilarPhrase = None
+        for phrase, print in references.items():
+            max_hamming_weight = 32 * min(len(fingerprint), len(print))
+            hamming_weight = sum(
+                sum(c == "1" for c in bin(xor(fingerprint[i], print[i])))
+                for i in range(min(len(fingerprint), len(print)))
+            )
+            if (hamming_weight / max_hamming_weight) > maxSimilarity:
+                maxSimilarity = hamming_weight / max_hamming_weight
+                mostSimilarPhrase = phrase
+        return mostSimilarPhrase
+                    </code></pre><br>
+                </div>
+
+                <!-- BolParser Class -->
+                <div>
+                    <br><h4 class="title is-5">BolParser</h4>
+                    <p>A class that parses a .tabla file and converts it to a concise, playable form.</p>
+
+                    <br><h5 class="title is-6">Class Constants and Variables (Selected if too many to write)</h5>
+                    <ul>
+                        <li><b>BEAT_DIVIDER:</b> The character used to differentiate beats.</li>
+                        <li><b>PHRASE_SPLITTER:</b> Indicates a sequential phrase split to match jati.</li>
+                        <!-- Add more constants as per the code definitions -->
+                    </ul>
+
+                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                    <ul>
+                        <li>
+                            <b>parse(cls, file) -> Bol:</b>
+                            <p>Parses a .tabla file and returns a Bol object representing the composition.</p>
+                        </li>
+                        <!-- Add descriptions for methods and validations -->
+                    </ul>
+
+                    <br><h5 class="title is-6">Full Code</h5>
+                    <pre><code>class BolParser():
+    '''
+    Class that parses a .tabla file and converts it to a concise, playable form
+    '''
+    BEAT_DIVIDER = "|"
+    PHRASE_SPLITTER = "-"
+    PHRASE_JOINER_OPEN = "["
+    PHRASE_JOINER_CLOSE = "]"
+    MARKER = "~"
+
+    # Download recordings folder if it does not exist already
+    destination = Path.cwd() / "recordings"
+    destination.mkdir(exist_ok=True, parents=True)
+    fs = fsspec.filesystem("github", org="shreyanmitra", repo="Tabalchi")
+    fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
+
+    # Initialize components like phrases, composite phrases, sequential phrases, etc.
+    # Example of initializing phrases (complete this based on code):
+
+    # Method to parse .tabla file into an object of Bol
+    @classmethod
+    def parse(cls, file) -> Bol:
+        '''
+        Parses a .tabla file and returns a Bol object
+        '''
+        assert ".tabla" in file, "Please pass a valid .tabla file"
+        with open(file, 'r') as composition:
+            data = json.load(composition)
+            data = SimpleNamespace(**data)
+        try:
+            compositionType = CompositionType.registeredTypes[data.type]
+            taal = Taal.registeredTaals[data.taal]
+            # Detailed parsing logic for speed, jati, and so forth
+            # Uses pre-defined schemas, conditions, and associations to validate and parse
+        except Exception:
+            raise ValueError("Something is wrong with the configuration of your .tabla file")
+
+                    </code></pre><br>
+                </div>
+  
+
+            <!-- Further classes would follow in a similar format below, with appropriate titles and code sections -->
+        </div>
+
+        <!-- JavaScript for interactivity, if required -->
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+        <script>
+            new Vue({
+                el: '#app',
+                data: {
+                    // Interactive data
+                },
+                methods: {
+                    // Methods for interaction
+                }
+            });
+        </script>
+    </section>
+</body>
+</html>
+```
