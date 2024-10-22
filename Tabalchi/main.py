@@ -3,7 +3,6 @@
 #Imports
 import json #For parsing .tabla files
 from jsonschema import validate #For checking .tabla files for validity
-from config.initialize import * #For file configs
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
 from pydub.playback import play as pydubplay #Also for playing sounds
@@ -532,9 +531,33 @@ class CompositionGenerator():
         '''
         warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
         warnings.warn("Execution time might be excessive depending on your hardware.")
+        TEMPLATE = '''
+        {
+        "composition": "Kayda",
+        "name": "My Composition",
+        "components":
+          {"mainTheme":
+           {"bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
+           "khali": "Infer"
+           },
+         "paltas": {
+            "palta1": {
+              "bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
+              "khali": "Infer"
+            }
+         },
+         "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S"
+         },
+        "taal": "Ektaal",
+        "speed": "60bpm",
+        "jati": "Chatusra",
+        "playingStyle": "Lucknow",
+        "display": "Bhatkande"
+        }
+        '''
         phraseInfo = "The following phrases are defined by the user on the tabla, along with a description of how to play them: \n" + "\n".join([key + "." + val.description for key, val in Phrase.registeredPhrases.items()])
         mainPrompt = "Using the above phrases only, compose a " + type + " in taal with name/beats " + taal + " and speed class " + speedClass + ". The composition should be in jati with name/syllables per beat " + jati + " and in the " + school + " style of playing. Components of the composition should be marked appropriately."
-        symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla", "r").read() + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
+        symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + TEMPLATE + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
         end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
         prompt = phraseInfo + mainPrompt + symbolPrompt + end
         messages = [

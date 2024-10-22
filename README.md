@@ -3,6 +3,10 @@
 
 A parser for Indian classical music, specifically tabla, that **does not** require any knowledge of MIDI, music sampling, or battery kits.
 
+<blockquote>
+Note that this is a brand-new library that is not necessarily stable. Feel free to provide feedback to the author
+</blockquote>
+
 To get started, write a .tabla file with the *bol* (composition). The syntax of a .tabla file is identical to that of a .json file.
 
 Example:
@@ -95,7 +99,7 @@ The standard parser uses a set of predefined configurations available through th
 
 This symbol specification is given by ``BolParser``'s ``getSymbols()``, which should be overridden to return appropriate markdown text if your parser uses different/additional symbols.
 
-We now give brief descriptions of the main classes you may find yourself using in addition to BolParser. See the docs for more detailed descriptions.
+We now give brief descriptions of the main classes you may find yourself using in addition to BolParser. See the [docs](https://shreyanmitra.github.io/Tabalchi/) for more detailed descriptions.
 
 1. **BeatRange**: Represents an interval of beats with methods for checking sequences and subsequences.
 2. **CompositionType**: Defines a composition type with a schema, validity check, and registration for future use.
