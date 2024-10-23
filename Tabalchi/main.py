@@ -36,7 +36,7 @@ class BeatRange():
         self.end = end
 
     @classmethod
-    def fromString(self, spec:str) -> BeatRange: #In the format num1-num2 (no spaces allowed)
+    def fromString(self, spec:str) -> Self: #In the format num1-num2 (no spaces allowed)
             numbers = spec.split("-")
             num1 = int(numbers[0])
             num2 = int(numbers[1])

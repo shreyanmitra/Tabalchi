@@ -1,7 +1,7 @@
 from setuptools import setup, find_namespace_packages
 
 setup(name='Tabalchi',
-      version='0.0.6',
+      version='0.0.7',
       description='Tabalchi: Parser and Generator for Indian Classical Music',
       long_description=open("README.md", "r", encoding="utf-8").read(),
       long_description_content_type="text/markdown",
