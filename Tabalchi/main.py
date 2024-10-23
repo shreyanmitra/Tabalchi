@@ -49,7 +49,7 @@ class BeatRange():
         return self.end - self.begin
 
     @classmethod
-    def isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:
+    def isContiguousSequence(cls, ranges:List[Self], totalBeats:int) -> bool:
         '''
         Returns if a particular beat range convers all beats from 1 to the given total number of beats
 
@@ -66,7 +66,7 @@ class BeatRange():
         return True
 
     @classmethod
-    def getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:
+    def getSubsequence(cls, ranges:List[Self], begin:int, end:int) -> List[BeatRange]:
         '''
         Returns the ranges, in sorted order, that fall between a given begin and end beat
 
