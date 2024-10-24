@@ -13,7 +13,7 @@ Example:
 
 ```javascript
 {
-"composition": "Kayda",
+"type": "Kayda",
 "name": "My Composition",
 "components":
   {"mainTheme":
@@ -29,14 +29,19 @@ Example:
  "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S"
  },
 "taal": "Ektaal",
-"speed": "60bpm",
+"speed": 60,
 "jati": "Chatusra",
 "playingStyle": "Lucknow",
 "display": "Bhatkande"
 }
 ```
+First, make sure required dependencies are in your system as follows:
 
-To play a given .tabla file, simply write the following Python code. You will need to first install the ``Tabla`` library through ``pip install Tabla``
+```bash
+sudo apt install ffmpeg acoustid-fingerprinter
+```
+
+To play a given .tabla file, simply write the following Python code. You will need to install the ``Tabla`` library through ``pip install Tabla``
 
 ```python
 from Tabla import *

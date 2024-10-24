@@ -1,5 +1,5 @@
 {
-"composition": "Kayda",
+"type": "Kayda",
 "name": "My Composition",
 "components":
   {"mainTheme":
@@ -15,7 +15,7 @@
  "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S"
  },
 "taal": "Ektaal",
-"speed": "60bpm",
+"speed": 60,
 "jati": "Chatusra",
 "playingStyle": "Lucknow",
 "display": "Bhatkande"

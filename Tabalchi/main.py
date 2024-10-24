@@ -3,6 +3,7 @@
 #Imports
 import json #For parsing .tabla files
 from jsonschema import validate #For checking .tabla files for validity
+from __future__ import annotations
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
 from pydub.playback import play as pydubplay #Also for playing sounds
@@ -66,7 +67,7 @@ class BeatRange():
         return True
 
     @classmethod
-    def getSubsequence(cls, ranges:List[Self], begin:int, end:int) -> List[BeatRange]:
+    def getSubsequence(cls, ranges:List[Self], begin:int, end:int) -> List[Self]:
         '''
         Returns the ranges, in sorted order, that fall between a given begin and end beat
 
@@ -148,7 +149,7 @@ class Taal(Numeric):
             self.id = str(beats)
         else:
             self.id = name
-        self.theka = theka
+        self._theka = theka
         if register:
             Taal.registeredTaals.update({self.id: self})
 
@@ -160,7 +161,10 @@ class Taal(Numeric):
         return self.beats
     @property
     def theka(self):
-        return self.theka
+        return self._theka
+    @theka.setter
+    def theka(self, theka):
+        self._theka = theka
 
 #A class representing a jati
 class Jati(Numeric):
@@ -199,7 +203,7 @@ class SpeedClasses:
 
     @classmethod
     def getSpeedClassFromBPM(cls, bpm:int) -> str:
-        for key, value in SpeedClasses.registereSpeeds.items():
+        for key, value in SpeedClasses.registeredSpeeds.items():
             if value.check(bpm):
                 return key
 
@@ -210,15 +214,15 @@ class Speed(Numeric):
     '''
     def __init__(self, specifier:Union[int, str]):
         if isinstance(specifier, str):
-            self.name = specifier
-            self.bpm = SpeedClasses[specifier].generator()
+            self.speedClass = specifier
+            self.bpm = SpeedClasses.registeredSpeeds[specifier].generator()
         else:
             self.bpm = specifier
-            self.name = SpeedClasses.getSpeedClassFromBPM(specifier)
+            self.speedClass = SpeedClasses.getSpeedClassFromBPM(specifier)
 
     @property
     def name(self):
-        return self.name
+        return self.speedClass
     @property
     def number(self):
         return self.bpm
@@ -332,7 +336,7 @@ class Fetcher:
         if oldSound: #If a Sound object with the given identifier exists
             return oldSound #return the sound object
         elif not specifier: #We did not find the Sound object and no specifier was provided for synthesizing the new sound
-            raise ValueError("Did not find soundbite. Have you preregistered the id? Otherwise, you should just pass the soundBite when initializing the phrase.")
+            raise ValueError("Did not find soundbite " + str(id) + ". Have you preregistered the id? Otherwise, you should just pass the soundBite when initializing the phrase. Debug Info: " + str(oldSound))
         #For both of the following cases, componentIDs must also be specified
         elif specifier == "composite": #A composite sound consists of two sounds played at the same time. Ex. dha = ge + na
             assert componentIDs, "Need to specify component ids for composite phrases."
@@ -369,7 +373,7 @@ class Sound():
     def __init__(self, id, recording):
         self.id = id #Store the identifier
         self.recording = "recordings/" + recording #Store the recording
-        sounds.update({id: self}) #We have created a new sound!
+        Sound.sounds.update({id: self}) #We have created a new sound!
 
     def play(self):
         '''
@@ -435,7 +439,7 @@ class Phrase():
         register(boolean): Whether this phrase should be registered
     '''
     def __init__(self, mainID, syllables = 1, position = 'baiyan', info = 'No info provided', aliases = None, soundBite = "Fetch", register = True):
-        if not isinstance(soundBite, Sounds) and soundBite != "Fetch":
+        if not isinstance(soundBite, Sound) and soundBite != "Fetch":
             soundBite = Sound(mainID, soundBite) #We have a path to an audio file and need to convert it to a Sound object. The audio file should be in the recordings folder
         mainID = mainID.lower() #Lowercase all letters for consistency
         #Below, keep track of all possible names of the phrase
@@ -448,7 +452,7 @@ class Phrase():
         self.syllables = syllables
         self.position = position
         self.info = info
-        self.soundBite = soundBite if soundBite != "Fetch" else fetch(mainID) #Fetch sound bite if needed
+        self.soundBite = soundBite if soundBite != "Fetch" else Fetcher.fetch(mainID) #Fetch sound bite if needed
         if register:
             for id in self.ids:
                 Phrase.registeredPhrases.update({id: self}) #Register the phrases by updating the static dictionary
@@ -693,40 +697,39 @@ class BolParser():
     fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
 
     #Register bhari-khali mappings, basic vocab, composite phrases, compositions, jatis, sequences, speeds, and taals
-    vocabInitializer = [('ge', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi', ['ga', 'ghet', 'gat'], "Fetch", True),
-    ('ke', 1, 'baiyan', 'With a flat palm, lift the front fingers and lay them down again on the maidan above the shyahi', ['ki', 'ka'], "Fetch", True),
-    ('kat', 1, 'baiyan', 'With a flat palm, lift the entire hand  and lay it back down on the drum', None, "Fetch", True),
-    ('ghen', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi, like in \'ge\'. Immediately lift the hand to allow reverb.', None, "Fetch", True),
-    ('na', 1, 'daiyan', "Use the index finger to strike the kinar while keeping the middle and ring fingers on the border between the shyahi and tha maidan", None, "Fetch", True),
-    ('ta', 1, 'daiyan', "Use the ring finger to vertically strike the border between the shyahi and tha maidan. Let your index finger bounce on the kinar to create a ringing effect", None, "Fetch", True),
-    ('tin', 1, 'daiyan', "Use the index finger and gently hit the shyahi, lifting immediately afterwards to create a high-pitched ringing effect", None, "Fetch", True),
-    ('thun', 1, 'daiyan', "Use the index finger and strongly hit the shyahi, lifting immediately afterwards to create a loud high-pitched ringing effect", None, "Fetch", True),
-    ('te', 1, 'daiyan', "Use the middle and ring fingers to slap the shyahi OR use the index finger to slap the shyahi. Do not lift the hand, creating a closed sound.", ['ti', 'tit', 'tet'], "Fetch", True),
-    ('ne', 1, 'daiyan', "Use the middle, ring, and pinky fingers to gently touch the border between the kinar and maidan. Let some reverb occur.", ['re', 'ra'], "Fetch", True),
-    ('di', 1, 'daiyan', "Use all fingers to strike the shyahi, and immediately lift, leading to a ringing sound.", None, "Fetch", True),
-    ('tere', 2, 'daiyan', "Swipe your thumb and other fingers alternately on the kinar above the shyahi (with your palm on the shyahi) for a swishing sound", None, "Fetch", True),
-    ('tete', 2, 'daiyan', "Use the middle and ring fingers to slap the shyahi and then use the index finger to slap the shyahi as well. Do not lift the hand, creating a closed sound.", None, "Fetch", True),
-    ('S', 1, 'both', "Silence", None, "Fetch", True)]
+    vocabInitializer = [('ge', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi', ['ga', 'ghet', 'gat'], Sound("ge", "Ge.m4a"), True),
+    ('ke', 1, 'baiyan', 'With a flat palm, lift the front fingers and lay them down again on the maidan above the shyahi', ['ki', 'ka'], Sound("ke", "Ke.m4a"), True),
+    ('kat', 1, 'baiyan', 'With a flat palm, lift the entire hand  and lay it back down on the drum', None, Sound("kat", "Di.m4a"), True),
+    ('ghen', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi, like in \'ge\'. Immediately lift the hand to allow reverb.', None, Sound("ghen", "Ghen.m4a"), True),
+    ('na', 1, 'daiyan', "Use the index finger to strike the kinar while keeping the middle and ring fingers on the border between the shyahi and tha maidan", None, Sound("na", "Na.m4a"), True),
+    ('ta', 1, 'daiyan', "Use the ring finger to vertically strike the border between the shyahi and tha maidan. Let your index finger bounce on the kinar to create a ringing effect", None, Sound("ta", "Ta.m4a"), True),
+    ('tin', 1, 'daiyan', "Use the index finger and gently hit the shyahi, lifting immediately afterwards to create a high-pitched ringing effect", None, Sound("tin", "Tin.m4a"), True),
+    ('thun', 1, 'daiyan', "Use the index finger and strongly hit the shyahi, lifting immediately afterwards to create a loud high-pitched ringing effect", None, Sound("thun", "Thun.m4a"), True),
+    ('te', 1, 'daiyan', "Use the middle and ring fingers to slap the shyahi OR use the index finger to slap the shyahi. Do not lift the hand, creating a closed sound.", ['ti', 'tit', 'tet'], Sound("te", "Te.m4a"), True),
+    ('ne', 1, 'daiyan', "Use the middle, ring, and pinky fingers to gently touch the border between the kinar and maidan. Let some reverb occur.", ['re', 'ra'], Sound("ne", "Ne.m4a"), True),
+    ('di', 1, 'daiyan', "Use all fingers to strike the shyahi, and immediately lift, leading to a ringing sound.", None, Sound("di", "Di.m4a"), True),
+    ('tere', 2, 'daiyan', "Swipe your thumb and other fingers alternately on the kinar above the shyahi (with your palm on the shyahi) for a swishing sound", None, Sound("tere", "Tere.m4a"), True),
+    ('tete', 2, 'daiyan', "Use the middle and ring fingers to slap the shyahi and then use the index finger to slap the shyahi as well. Do not lift the hand, creating a closed sound.", None, Sound("tete", "Tete.m4a"), True),
+    ('S', 1, 'both', "Silence", None, Sound("S", "S.m4a"), True)]
     for element in vocabInitializer:
         Phrase(*element)
 
-    compositeInitializer = [('dha', ['ge', 'na']),
-    ('dhin', ['ge', 'tin'], ['gran']),
-    ('dhet', ['ge', 'tet'], ['dhe']),
-    ('dhere', ['ge', 'tere']),
-    ('dhete', ['ge', 'tete']),
-    ('kre', ['kat', 'te']),
-    ('kran', ['ke', 'ta'])]
+    compositeInitializer = [('dha', ['ge', 'na'], None, Sound("dha", "Dha.m4a")),
+    ('dhin', ['ge', 'tin'], ['gran'], Sound("dhin", "Dhin.m4a")),
+    ('dhet', ['ge', 'tet'], ['dhe'], Sound("dhet", "Dhet.m4a")),
+    ('dhere', ['ge', 'tere'], None, Sound("dhere", "Dhere.m4a")),
+    ('dhete', ['ge', 'tete'], None, Sound("dhete", "Dhete.m4a")),
+    ('kre', ['kat', 'te'], None, Sound("kre", "Kre.m4a")),
+    ('kran', ['ke', 'ta'], None, Sound("kran", "Kran.m4a"))]
     for element in compositeInitializer:
         Phrase.createCompositePhrase(*element)
 
-    sequentialInitializer = [('terekite', ['tete', 'ki', 'te'], "both"),
-    ('gadigene', ['ga', 'di', 'ge', 'ne'], "both"),
-    ('nagetete', ['na', 'ge', 'tete'], "both"),
-    ('terekite', ['tete', 'ki', 'te'], "both"),
-    ('kitetaka', ['ki', 'tete', 'ka'], "both"),
-    ('dheredhere', ['dhere', 'dhere'], "both"),
-    ('teretere', ['tere', 'tere'], "daiyan")]
+    sequentialInitializer = [('terekite', ['tete', 'ki', 'te'], "both", None, Sound("terekite", "Terekite.m4a")),
+    ('gadigene', ['ga', 'di', 'ge', 'ne'], "both", None, Sound("gadigene", "Gadigene.m4a")),
+    ('nagetete', ['na', 'ge', 'tete'], "both", None, Sound("nagetete", "Nagetete.m4a")),
+    ('kitetaka', ['ki', 'tete', 'ka'], "both", None, Sound("kitetaka", "Kitetaka.m4a")),
+    ('dheredhere', ['dhere', 'dhere'], "both", None, Sound("dheredhere", "Dheredhere.m4a")),
+    ('teretere', ['tere', 'tere'], "daiyan", None, Sound("teretere", "Teretere.m4a"))]
     for element in sequentialInitializer:
         Phrase.createSequentialPhrase(*element)
 
@@ -979,32 +982,32 @@ class BolParser():
         return BolParser.regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
 
 
-    compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
-    ("Rela", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
-    ("Peshkar", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
-    ("GatKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
-    ("LadiKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler)
-    ("Gat", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Tukda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("GatTukda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Chakradar", fixedSchema, regularChakradarValidityCheck, chakradarAssembler)
-    ("FarmaisiChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler)
-    ("KamaaliChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler)
-    ("Paran", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Aamad", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Chalan", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("GatParan", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Kissm", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Laggi", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Mohra", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Mukhda", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Rou", fixedSchema, regularFixedValidityCheck, fixedAssembler)
-    ("Tihai", regularTihaiValidityCheck, tihaiAssembler)
-    ("Bedam Tihai", bedamTihaiValidityCheck, tihaiAssembler)
-    ("Damdaar Tihai", damdarTihaiValidityCheck, tihaiAssembler)]
+    compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
+    ("Rela", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
+    ("Peshkar", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
+    ("GatKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
+    ("LadiKayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
+    ("Gat", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Tukda", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("GatTukda", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Chakradar", fixedSchema, regularChakradarValidityCheck, chakradarAssembler),
+    ("FarmaisiChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler),
+    ("KamaaliChakradar", chakradarSchema, specialChakradarValidityCheck, chakradarAssembler),
+    ("Paran", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Aamad", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Chalan", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("GatParan", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Kissm", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Laggi", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Mohra", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Mukhda", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Rou", fixedSchema, regularFixedValidityCheck, fixedAssembler),
+    ("Tihai", tihaiSchema, regularTihaiValidityCheck, tihaiAssembler),
+    ("Bedam Tihai", tihaiSchema, bedamTihaiValidityCheck, tihaiAssembler),
+    ("Damdaar Tihai", tihaiSchema, damdarTihaiValidityCheck, tihaiAssembler)]
 
     for element in compositionsInitializer:
-        CompositionType(**element)
+        CompositionType(*element)
 
     @classmethod
     def toKhali(cls, bolString:str) -> str:
@@ -1040,7 +1043,7 @@ class BolParser():
             playingStyle = data.playingStyle
             assert data.display in Notation.VALID_NOTATIONS
             display = eval(data.display)
-            assert compositionType.preValidityCheck(data.components)
+            assert compositionType.preCheck(data.components)
         except Exception:
             raise ValueError("Something is wrong with the configuration of your .tabla file")
 
@@ -1147,7 +1150,9 @@ class BolParser():
             beatSpeed = getSpeed(i + 1)
             phraseSyllableMapping = OrderedDict(zip(rawPhrases, syllableCount))
             finalizedBeats.append(Beat(i + 1, taaliKhaliOrNone, saam, phraseSyllableMapping, beatSpeed, markers))
-        return Bol(finalizedBeats)
+        parsedResult = Bol(finalizedBeats)
+        compositionType.mainCheck(parsedResult)
+        return parsedResult
 
 
     @classmethod
