@@ -44,7 +44,7 @@ sudo apt install ffmpeg acoustid-fingerprinter
 To play a given .tabla file, simply write the following Python code. You will need to install the ``Tabla`` library through ``pip install Tabla``
 
 ```python
-from Tabla import *
+from Tabalchi import *
 parser = BolParser()
 parser.parse("yourBol.tabla").play()
 ```
@@ -52,14 +52,14 @@ parser.parse("yourBol.tabla").play()
 To view the entire composition with the notation of your choice (specified in the .tabla file itself), simply write:
 
 ```python
-from Tabla import *
+from Tabalchi import *
 parser = BolParser()
 parser.parse("yourBol.tabla").write("yourOutputFile.txt/pdf", Bhatkande)
 ```
 The parser above is the standard BolParser provided by the library. You can create your own parser by doing something like:
 
 ```python
-from Tabla import*
+from Tabalchi import*
 class MyParser(BolParser):
   #override functionality
 parser = MyParser()
