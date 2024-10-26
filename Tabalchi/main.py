@@ -112,7 +112,8 @@ class CompositionType():
             try:
                 validate(instance = bol, schema = schema)
                 return True
-            except Exception:
+            except Exception as e:
+                print(e)
                 return False
 
         self.preCheck = preValidityCheck #This is used within the BolParser before BolParser turns the .tabla file into a Bol (Note to parser: only pass in components field here)
@@ -260,11 +261,11 @@ class Bol():
         self.markedBeats = []
         self.markedPhrases = []
         for beat in beats:
-            for i in range(len(beat.phrases.keys())):
-                lst = list(beat.phrases.keys())
+            lst = beat.phrases
+            for i in range(len(lst)):
                 if(beat.markers[i] == 1):
                     self.markedBeats.append(beat)
-                    self.markedPhrases.append(lst[i])
+                    self.markedPhrases.append(lst[i][0])
 
     def play(self):
         for beat in self.beats:
@@ -282,32 +283,34 @@ class Beat():
     '''
     A class representing a collection of phrases
     '''
-    def __init__(self, number:int, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, phrases:OrderedDict[Phrase, int], speed:int, markers:list[Literal[0,1]]):
+    def __init__(self, number:int, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, phrases:list[tuple], speed:int, markers:list[Literal[0,1]]):
         self.number = number
-        assert len(markers) == len(phrases.keys()), "Invalid length for marker array"
+        assert len(markers) == len(phrases), "Invalid length for marker array. At beat number " + str(number) + ". \nMarkers: " + str(markers) + "\nPhrases: " + str(phrases)
         self.markers = markers
         self.clap = taaliKhaliOrNone
         self.saam = saam
         self.speed = speed
         duration = 60.0/speed #In seconds (this is the duration of the entire beat)
         jati = 0
-        for _,val in phrases.items():
-            jati += val
+        for item in phrases:
+            jati += item[1]
         syllableDuration = duration/jati #This is duration of a specific segment of the beat
         self.multipliers = []
         self.soundFiles = []
-        for phrase, syllables in phrases.items():
+        for item in phrases:
+            phrase = item[0]
+            syllables = item[1]
             self.multipliers.append(((syllables*1.0)/phrase.syllables) * (syllableDuration/0.25)) #Since, in the original recording, one syllable = 0.25 seconds
             self.soundFiles.append(phrase.soundBite.recording)
         self.phrases = phrases
 
     def play(self):
         for index in range(len(self.soundFiles)):
-            s = AudioSegment(self.soundFiles[i])
-            if self.multipliers[i] >= 1:
-                s = s.speedup(self.multipliers[i])
+            s = AudioSegment.from_file(self.soundFiles[index])
+            if self.multipliers[index] >= 1:
+                s = s.speedup(self.multipliers[index])
             else:
-                s = ae.speed_down(s, self.multipliers[i])
+                s = ae.speed_down(s, self.multipliers[index])
             pydubplay(s)
 
 
@@ -458,7 +461,7 @@ class Phrase():
                 Phrase.registeredPhrases.update({id: self}) #Register the phrases by updating the static dictionary
 
     def __repr__(self):
-        return str(mainID) #A phrase is uniquely represented by its name
+        return str(self.ids[0]) #A phrase is uniquely represented by its name
 
     def play(self):
         self.soundBite.play() #Use the Sound instance's play method to play the phrase
@@ -643,6 +646,134 @@ class AudioToBolConvertor():
         return mostSimilarPhrase
 
 
+expansionarySchema = {
+    "type": "object",
+    "properties": {
+        "mainTheme": {
+            "type": "object",
+            "properties":{
+                "bhari": {"type": "string"},
+                "khali": {"type": "string"},
+            },
+        },
+        "paltas":{
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties":{
+                    "bhari": {"type": "string"},
+                    "khali": {"type": "string"},
+                },
+            },
+        },
+        "tihai": {"type": "string"},
+    },
+    "required": ["mainTheme", "paltas", "tihai"]
+}
+
+
+def expansionaryAssembler(tablaFile:SimpleNamespace) -> list[str]:
+    result = []
+    result.append(tablaFile.mainTheme.bhari)
+    if tablaFile.mainTheme.khali == "Infer":
+        result.append(BolParser.toKhali(tablaFile.mainTheme.bhari))
+    else:
+        result.append(tablaFile.mainTheme.khali)
+
+    for palta in tablaFile.paltas:
+        result.append(palta.bhari)
+        if palta.khali == "Infer":
+            result.append(BolParser.toKhali(palta.bhari))
+        else:
+            result.append(palta.khali)
+
+    result.append(tablaFile.tihai)
+    return result
+
+fixedSchema = {
+    "type": "object",
+    "properties": {
+        "content": {"type": "string"},
+        "tihai": {"type": "string"},
+    },
+    "required": ["content"],
+}
+
+
+def fixedAssembler(tablaFile:SimpleNamespace) -> list[str]:
+    result = []
+    result.append(tablaFile.content)
+    if hasattr(tablaFile, tihai):
+        result.append(tablaFile.tihai)
+
+    return result
+
+chakradarSchema = {
+    "type": "object",
+    "properties": {
+        "content": {"type": "string"},
+        "tihai": {"type": "string"},
+    },
+    "required": ["content", "tihai"],
+}
+
+
+def chakradarAssembler(tablaFile:SimpleNamespace) -> list[str]:
+    result = []
+    result.append(tablaFile.content)
+    result.append(tablaFile.tihai)
+    return result
+
+tihaiSchema = {
+    "type": "object",
+    "properties": {
+        "content": {"type": "string"},
+    },
+    "required": ["content"],
+}
+
+
+def tihaiAssembler(tablaFile:SimpleNamespace) -> list[str]:
+    result = []
+    result.append(tablaFile.content)
+    return result
+
+
+def expansionaryValidityCheck(bol:Bol) -> bool:
+    return True
+
+
+def regularFixedValidityCheck(bol:Bol) -> bool:
+    return True
+
+
+def regularChakradarValidityCheck(bol:Bol) -> bool:
+    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+    k, m = divmod(len(phraseList), 3)
+    cycles = (phraseList[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(3))
+    return len(phraseList) % 3 and set(cycles[0]) == set(cycles[1]) and set(cycles[1]) == set(cycles[2])
+
+def specialChakradarValidityCheck(bol:Bol) -> bool:
+    return regularChakradarValidityCheck(bol) and all([beat.saam for beat in bol.markedBeats])
+
+def regularTihaiValidityCheck(bol:Bol) -> bool:
+    return regularChakradarValidityCheck(bol)
+
+def bedamTihaiValidityCheck(bol:Bol) -> bool:
+    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+    return regularTihaiValidityCheck(bol) and all(["S" not in phrase.ids for phrase in phraseList])
+
+def damdarTihaiValidityCheck(bol:Bol) -> bool:
+    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
+    return regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
+
+def toRecursiveNamespace(d):
+    x = SimpleNamespace()
+    _ = [setattr(x, k,
+                 toRecursiveNamespace(v) if isinstance(v, dict)
+                 else [toRecursiveNamespace(e) for e in v] if isinstance(v, list)
+                 else v) for k, v in d.items()]
+    return x
 
 class BolParser():
     '''
@@ -651,7 +782,7 @@ class BolParser():
     BEAT_DIVIDER = "|"
     PHRASE_SPLITTER = "-"
     PHRASE_JOINER_OPEN = "["
-    PHRASE_JOINER_OPEN = "]"
+    PHRASE_JOINER_CLOSE = "]"
     MARKER = "~"
 
     SYMBOLSMD = '''
@@ -710,7 +841,7 @@ class BolParser():
     ('di', 1, 'daiyan', "Use all fingers to strike the shyahi, and immediately lift, leading to a ringing sound.", None, Sound("di", "Di.m4a"), True),
     ('tere', 2, 'daiyan', "Swipe your thumb and other fingers alternately on the kinar above the shyahi (with your palm on the shyahi) for a swishing sound", None, Sound("tere", "Tere.m4a"), True),
     ('tete', 2, 'daiyan', "Use the middle and ring fingers to slap the shyahi and then use the index finger to slap the shyahi as well. Do not lift the hand, creating a closed sound.", None, Sound("tete", "Tete.m4a"), True),
-    ('S', 1, 'both', "Silence", None, Sound("S", "S.m4a"), True)]
+    ('s', 1, 'both', "Silence", None, Sound("S", "S.m4a"), True)]
     for element in vocabInitializer:
         Phrase(*element)
 
@@ -856,132 +987,6 @@ class BolParser():
     for element in jatiInitializer:
         Jati(**element)
 
-    expansionarySchema = {
-        "type": "object",
-        "properties": {
-            "mainTheme": {
-                "type": "object",
-                "properties":{
-                    "bhari": {"type": "string"},
-                    "khali": {"type": "string"},
-                },
-            },
-            "paltas":{
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties":{
-                        "bhari": {"type": "string"},
-                        "khali": {"type": "string"},
-                    },
-                },
-            },
-            "tihai": {"type": "string"},
-        },
-        "required": ["mainTheme", "paltas", "tihai"]
-    }
-
-    @classmethod
-    def expansionaryAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
-        result = []
-        result.append(tablaFile.mainTheme.bhari)
-        if tablaFile.mainTheme.khali == "Infer":
-            result.append(BolParser.toKhali(tablaFile.mainTheme.bhari))
-        else:
-            result.append(tablaFile.mainTheme.khali)
-
-        for palta in tablaFile.paltas:
-            result.append(palta.bhari)
-            if palta.khali == "Infer":
-                result.append(BolParser.toKhali(palta.khali))
-            else:
-                result.append(palta.khali)
-
-        result.append(tablaFile.tihai)
-        return result
-
-    fixedSchema = {
-        "type": "object",
-        "properties": {
-            "content": {"type": "string"},
-            "tihai": {"type": "string"},
-        },
-        "required": ["content"],
-    }
-
-    @classmethod
-    def fixedAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
-        result = []
-        result.append(tablaFile.content)
-        if hasattr(tablaFile, tihai):
-            result.append(tablaFile.tihai)
-
-        return result
-
-    chakradarSchema = {
-        "type": "object",
-        "properties": {
-            "content": {"type": "string"},
-            "tihai": {"type": "string"},
-        },
-        "required": ["content", "tihai"],
-    }
-
-    @classmethod
-    def chakradarAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
-        result = []
-        result.append(tablaFile.content)
-        result.append(tablaFile.tihai)
-        return result
-
-    tihaiSchema = {
-        "type": "object",
-        "properties": {
-            "content": {"type": "string"},
-        },
-        "required": ["content"],
-    }
-
-    @classmethod
-    def tihaiAssembler(cls, tablaFile:SimpleNamespace) -> list[str]:
-        result = []
-        result.append(tablaFile.content)
-        return result
-
-    @classmethod
-    def expansionaryValidityCheck(cls, bol:Bol) -> bool:
-        return True
-
-    @classmethod
-    def regularFixedValidityCheck(cls, bol:Bol) -> bool:
-        return True
-
-    @classmethod
-    def regularChakradarValidityCheck(cls, bol:Bol) -> bool:
-        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-        k, m = divmod(len(phraseList), 3)
-        cycles = (phraseList[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(3))
-        return len(phraseList) % 3 and set(cycles[0]) == set(cycles[1]) and set(cycles[1]) == set(cycles[2])
-
-    @classmethod
-    def specialChakradarValidityCheck(cls, bol:Bol) -> bool:
-        return BolParser.regularChakradarValidityCheck(bol) and all([beat.saam for beat in bol.markedBeats])
-
-    @classmethod
-    def regularTihaiValidityCheck(cls, bol:Bol) -> bool:
-        return BolParser.regularChakradarValidityCheck(bol)
-
-    @classmethod
-    def bedamTihaiValidityCheck(cls, bol:Bol) -> bool:
-        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-        return BolParser.regularTihaiValidityCheck(bol) and all(["S" not in phrase.ids for phrase in phraseList])
-
-    @classmethod
-    def damdarTihaiValidityCheck(cls, bol:Bol) -> bool:
-        phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-        return BolParser.regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
-
-
     compositionsInitializer = [("Kayda", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
     ("Rela", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
     ("Peshkar", expansionarySchema, expansionaryValidityCheck, expansionaryAssembler),
@@ -1012,8 +1017,9 @@ class BolParser():
     @classmethod
     def toKhali(cls, bolString:str) -> str:
         result = bolString
-        for key, val in BolParser.bhariKhaliMappings:
-            result = result.replace(key, val)
+        for key, val in BolParser.bhariKhaliMappings.items():
+            for id in key.ids:
+                result = result.replace(id, val.ids[0])
         return result
 
 
@@ -1021,8 +1027,8 @@ class BolParser():
     def parse(cls, file) -> Bol:
         assert ".tabla" in file, "Please pass a valid .tabla file"
         with open(file, 'r') as composition:
-            data = json.load(composition)
-            data = SimpleNamespace(**data)
+            rawData = json.load(composition)
+            data = SimpleNamespace(**rawData)
         try:
             compositionType = CompositionType.registeredTypes[data.type]
             taal = Taal.registeredTaals[data.taal]
@@ -1047,30 +1053,37 @@ class BolParser():
         except Exception:
             raise ValueError("Something is wrong with the configuration of your .tabla file")
 
+        data = toRecursiveNamespace(rawData)
         segmentList = compositionType.assembler(data.components)
-        if(any([(segment.count(BEAT_DIVIDER) + 1) % taal.beats != 0 for segment in segmentList])):
+        if(any([(segment.count(BolParser.BEAT_DIVIDER) + 1) % taal.beats != 0 for segment in segmentList])):
             warnings.warn("Specific segments of your composition do not align with the selected taal. This may or may not be a problem, depending on the type of composition. The program will continue without error as long as the entire composition as a whole aligns in number of beats with the taal.")
-        completeBolString = BEAT_DIVIDER.join(segmentList)
-        assert (completeBolString.count(BEAT_DIVIDER) + 1) % taal.beats == 0, "Taal not compatible with function"
-        totalBeats = completeBolString.count(BEAT_DIVIDER) + 1
-        beatPartition = completeBolString.split(BEAT_DIVIDER)
+        completeBolString = BolParser.BEAT_DIVIDER.join(segmentList)
+        completeBolStringFormatted = completeBolString.split(BolParser.BEAT_DIVIDER)
+        for index in range(len(completeBolStringFormatted)):
+            if (index+1) % taal.beats == 1:
+                completeBolStringFormatted[index] = '\n\n\033[1m' + completeBolStringFormatted[index] + '\033[0m'
+        completeBolStringFormatted = BolParser.BEAT_DIVIDER.join(completeBolStringFormatted)
+        assert (completeBolString.count(BolParser.BEAT_DIVIDER) + 1) % taal.beats == 0, "Taal not compatible with composition. The composition: \n" + completeBolStringFormatted + "\n\n has " + str(completeBolString.count(BolParser.BEAT_DIVIDER) + 1) + " beats, which is not a multiple of " + str(taal.beats) + "."
+        totalBeats = completeBolString.count(BolParser.BEAT_DIVIDER) + 1
+        beatPartition = completeBolString.split(BolParser.BEAT_DIVIDER)
         if isinstance(speed, dict):
             assert BeatRange.isContiguousSequence(list(speed.keys()), totalBeats)
         if isinstance(jati, dict):
             assert BeatRange.isContiguousSequence(list(jati.keys()), totalBeats)
 
         def inferJati(beat:str) -> int:
+            beat = beat.strip()
             newStr = ""
             inGrouping = False
             for char in beat:
-                if char == PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping = True
-                if char == PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping =  False
 
                 if char == " " and inGrouping:
                     newStr += "*"
-                elif char == PHRASE_SPLITTER:
+                elif char == BolParser.PHRASE_SPLITTER:
                     newStr += " "
                 else:
                     newStr += char
@@ -1101,13 +1114,14 @@ class BolParser():
         finalizedBeats = []
         for i in range (len(beatPartition)):
             beat = beatPartition[i]
-            assert jati == "Infer" or inferJati(beat) == getJati(i + 1), "Provided jati for certain beats does not match actual jati"
+            #assert jati == "Infer" or inferJati(beat) == getJati(i + 1), "Provided jati for certain beats does not match actual jati at beat " + str(i) + ". User-specified jati: " + str(getJati(i+1)) + " syllables per beat, while actual jati seems to be " + str(inferJati(beat)) + " syllables per beat. The bols in the beat are: " + beat + "."
+            beat = beat.strip()
             newStr = ""
             inGrouping = False
             for char in beat:
-                if char == PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping = True
-                if char == PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping =  False
 
                 if char == " " and inGrouping:
@@ -1121,24 +1135,32 @@ class BolParser():
             syllableCount = []
 
             for elem in intermediate:
-                if(not elem.beginswith(PHRASE_JOINER_OPEN)):
-                    if(elem.beginswith(MARKER)):
+                if(not elem.startswith(BolParser.PHRASE_JOINER_OPEN)):
+                    if(elem.startswith(BolParser.MARKER)):
                         markers.append(1)
                     else:
                         markers.append(0)
-                    syllableCount.append(elem.count(PHRASE_SPLITTER) + 1)
-                    rawPhrases.append(Phrase.registeredPhrases[elem.replace(PHRASE_SPLITTER, "").replace(MARKER, "")])
+                    correspondingPhrase = Phrase.registeredPhrases[elem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "")]
+                    rawPhrases.append(correspondingPhrase)
+                    if elem.count(BolParser.PHRASE_SPLITTER) != 0:
+                        syllableCount.append(elem.count(BolParser.PHRASE_SPLITTER) + 1)
+                    else:
+                        syllableCount.append(correspondingPhrase.syllables)
                 else:
-                    deconstructed = (elem.replace(PHRASE_JOINER_OPEN, "").replace(PHRASE_JOINER_CLOSE, "")).split("*")
+                    deconstructed = (elem.replace(BolParser.PHRASE_JOINER_OPEN, "").replace(BolParser.PHRASE_JOINER_CLOSE, "")).split("*")
                     for subElem in deconstructed:
-                        if(subElem.beginswith(MARKER)):
+                        if(subElem.startswith(BolParser.MARKER)):
                             markers.append(1)
                         else:
                             markers.append(0)
-                        syllableCount.append((subElem.count(PHRASE_SPLITTER) + 1) / len(deconstructed))
-                        rawPhrases.append(Phrase.registeredPhrases[subElem.replace(PHRASE_SPLITTER, "").replace(MARKER, "")])
+                        correspondingPhrase = Phrase.registeredPhrases[subElem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "")]
+                        rawPhrases.append(correspondingPhrase)
+                        if subElem.count(BolParser.PHRASE_SPLITTER) != 0:
+                            syllableCount.append((subElem.count(BolParser.PHRASE_SPLITTER) + 1) / len(deconstructed))
+                        else:
+                            syllableCount.append((correspondingPhrase.syllables) / len(deconstructed))
 
-
+            assert jati == "Infer" or sum(syllableCount) == getJati(i + 1), "Provided jati for certain beats does not match actual jati at beat " + str(i) + ". User-specified jati: " + str(getJati(i+1)) + " syllables per beat, while actual jati seems to be " + str(sum(syllableCount)) + " syllables per beat. The bols in the beat are: " + beat + "."
             taaliKhaliOrNone = 0
             if (i + 1)%taal.beats in taal.taali:
                 taaliKhaliOrNone = 1
@@ -1148,8 +1170,11 @@ class BolParser():
             if i%taal.beats == 0:
                 saam = True
             beatSpeed = getSpeed(i + 1)
-            phraseSyllableMapping = OrderedDict(zip(rawPhrases, syllableCount))
-            finalizedBeats.append(Beat(i + 1, taaliKhaliOrNone, saam, phraseSyllableMapping, beatSpeed, markers))
+            phraseSyllableMapping = list(zip(rawPhrases, syllableCount))
+            try:
+                finalizedBeats.append(Beat(i + 1, taaliKhaliOrNone, saam, phraseSyllableMapping, beatSpeed, markers))
+            except Exception as e:
+                raise AssertionError("Beat could not be initialized.\nDebug Info\n__________\n\nBeat Number: " + str(i + 1) + "\nBeat Speed: " + str(beatSpeed) + "\nMarkers: " + str(markers) + "\nPhrase-Syllable Mapping: " + str(phraseSyllableMapping) + "\nIntermediateString: " + str(intermediate))
         parsedResult = Bol(finalizedBeats)
         compositionType.mainCheck(parsedResult)
         return parsedResult

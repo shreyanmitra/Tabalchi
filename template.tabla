@@ -6,13 +6,13 @@
    {"bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
    "khali": "Infer"
    },
- "paltas": {
-    "palta1": {
+ "paltas": [
+    {
       "bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
       "khali": "Infer"
     }
- },
- "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dha ti ge ne | dha ti dha ge | dhin na ge na | dha S S S | dhin na ge na | dha S S S | dhin na ge na | dha S S S"
+ ],
+ "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dha ti ge ne | dha ti dha ge | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dha ti ge ne | dha ti dha ge | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dhin na ge na | dha s s s"
  },
 "taal": "Ektaal",
 "speed": 60,
