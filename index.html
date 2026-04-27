@@ -3,1096 +3,2123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tabalchi Documentation</title>
-    <link href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" rel="stylesheet">
+    <title>Tabalchi Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
     <style>
-        body {
-            margin: 20px;
+        :root {
+            --bg-1: #f4efe4;
+            --bg-2: #e6f1ec;
+            --ink: #182420;
+            --muted: #4e5d57;
+            --panel: rgba(255, 255, 255, 0.85); /* Slightly more opaque background */
+            --line: rgba(24, 36, 32, 0.12); /* Softer lines */
+            --accent: #e26d35;
+            --accent-soft: rgba(226, 109, 53, 0.16);
+            --good: #216f54;
+            --good-soft: rgba(33, 111, 84, 0.12);
+            --warn: #8a5d07;
+            --warn-soft: rgba(138, 93, 7, 0.16);
+            --bad: #a32020;
+            --bad-soft: rgba(163, 32, 32, 0.16);
+            --radius: 16px;
+            --mono: "IBM Plex Mono", Consolas, Menlo, Monaco, monospace;
+            --sans: "Space Grotesk", "Inter", "Segoe UI", sans-serif;
+            --shadow-sm: 0 2px 8px rgba(17, 29, 24, 0.04);
+            --shadow-md: 0 8px 24px rgba(17, 29, 24, 0.08), 0 2px 6px rgba(17, 29, 24, 0.03);
+            --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
         }
-        pre {
-            max-height: 300px;
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: var(--sans);
+            color: var(--ink);
+            background:
+                radial-gradient(circle at 0% 0%, rgba(226, 109, 53, 0.22), transparent 35%),
+                radial-gradient(circle at 100% 20%, rgba(40, 126, 95, 0.2), transparent 32%),
+                linear-gradient(135deg, var(--bg-1), var(--bg-2));
+            padding: 24px;
+        }
+
+        .shell {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            gap: 18px;
+        }
+
+        .hero {
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: var(--radius);
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: clamp(1.4rem, 2.8vw, 2rem);
+            letter-spacing: 0.02em;
+        }
+
+        .hero p {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 0.96rem;
+        }
+
+        .pill {
+            border: 1px solid var(--line);
+            background: #fff;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .workspace {
+            display: grid;
+            gap: 18px;
+            grid-template-columns: 1.5fr 1fr;
+        }
+
+        .card {
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: var(--panel);
+            border-radius: var(--radius);
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-header h2,
+        .card-header h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        button {
+            border: 1px solid rgba(24, 36, 32, 0.1);
+            background: #fff;
+            color: var(--ink);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 0.86rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            background: #fafaf8;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06);
+            border-color: rgba(24, 36, 32, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            background: #f4f4f2;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            border-color: var(--line);
+        }
+
+        button.primary {
+            border-color: rgba(226, 109, 53, 0.35);
+            background: linear-gradient(180deg, #fff7f3, #feede4);
+            color: #7f2f0f;
+        }
+
+        button.primary:hover {
+            border-color: rgba(226, 109, 53, 0.5);
+            background: linear-gradient(180deg, #fff, #fef1e9);
+        }
+
+        .editor-wrap {
+            padding: 16px;
+            display: grid;
+            gap: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 360px;
+            resize: vertical;
+            border-radius: 12px;
+            border: 1px solid rgba(24, 36, 32, 0.15);
+            background: #fff;
+            padding: 16px;
+            font-family: var(--mono);
+            font-size: 0.94rem;
+            line-height: 1.55;
+            color: #183127;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--good);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 0 0 3px var(--good-soft);
+        }
+
+        .preview {
+            min-height: 220px;
+            border: 1px solid rgba(24, 36, 32, 0.1);
+            border-radius: 12px;
+            background: #fafaf9;
+            padding: 14px 16px;
             overflow: auto;
-            background-color: #f6f8fa;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.015);
+        }
+
+        .preview pre {
+            margin: 0;
+            font-family: var(--mono);
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.5;
+            color: #21362d;
+        }
+
+        .playback-panel {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: #fff;
             padding: 10px;
-            border-radius: 5px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .yt-controls {
+            display: grid;
+            grid-template-columns: auto auto minmax(170px, 1fr) auto auto auto;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px;
+            background: #f7faf8;
+        }
+
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            padding: 0;
+        }
+
+        .icon-btn svg {
+            width: 17px;
+            height: 17px;
+            fill: currentColor;
+        }
+
+        .icon-btn .icon-pause,
+        .icon-btn .icon-volume-muted {
+            display: none;
+        }
+
+        .icon-btn.is-playing .icon-play {
+            display: none;
+        }
+
+        .icon-btn.is-playing .icon-pause {
+            display: inline;
+        }
+
+        .icon-btn.is-muted .icon-volume-on {
+            display: none;
+        }
+
+        .icon-btn.is-muted .icon-volume-muted {
+            display: inline;
+        }
+
+        .scrubber {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        .timecode {
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            color: var(--muted);
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .volume {
+            width: 96px;
+            accent-color: var(--good);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .playback-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .playback-track {
+            min-height: 82px;
+            max-height: 220px;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px;
+            background: #f8fbf9;
+            line-height: 1.9;
+            font-family: var(--mono);
+            font-size: 0.9rem;
+        }
+
+        .play-token {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: background-color 120ms ease, border-color 120ms ease;
+        }
+
+        .play-token.is-active {
+            background: #ffe3cf;
+            border-color: rgba(226, 109, 53, 0.55);
+            color: #6f2a10;
+        }
+
+        .play-token.is-missing {
+            background: rgba(163, 32, 32, 0.12);
+            border-color: rgba(163, 32, 32, 0.33);
+        }
+
+        .play-sep {
+            color: #82928b;
+            padding: 0 6px;
+        }
+
+        .hl {
+            border-bottom: 2px wavy;
+            border-radius: 4px;
+            padding: 0 1px;
+        }
+
+        .hl-error {
+            background: var(--bad-soft);
+            border-bottom-color: var(--bad);
+        }
+
+        .hl-warning {
+            background: var(--warn-soft);
+            border-bottom-color: var(--warn);
+        }
+
+        .status {
+            padding: 10px 12px;
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            background: #fff;
+            font-size: 0.88rem;
+            color: var(--muted);
+        }
+
+        .side {
+            display: grid;
+            gap: 18px;
+            align-content: start;
+        }
+
+        .diagnostics {
+            max-height: 650px;
+            overflow: auto;
+            padding: 10px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .diag {
+            border: 1px solid var(--line);
+            background: #fff;
+            border-radius: 12px;
+            padding: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .diag-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+        }
+
+        .severity-error {
+            color: var(--bad);
+        }
+
+        .severity-warning {
+            color: var(--warn);
+        }
+
+        .severity-info {
+            color: var(--good);
+        }
+
+        .diag p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.35;
+        }
+
+        .diag-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .cheatsheet {
+            padding: 14px;
+            display: grid;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+
+        .cheatsheet ul {
+            margin: 0;
+            padding-left: 18px;
+            color: var(--muted);
+        }
+
+        .api-snippets {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .snippet-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--line);
+            padding: 0 16px;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .snippet-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            padding: 12px 4px;
+            font-size: 0.85rem;
+            color: var(--muted);
+            box-shadow: none;
+            font-weight: 500;
+        }
+
+        .snippet-tab:hover {
+            transform: none;
+            background: none;
+            box-shadow: none;
+            color: var(--ink);
+            border-bottom-color: rgba(226, 109, 53, 0.3);
+        }
+
+        .snippet-tab.active {
+            color: var(--ink);
+            border-bottom-color: var(--accent);
+        }
+
+        .snippet-card {
+            display: none;
+            padding: 16px;
+            gap: 12px;
+            flex-direction: column;
+            animation: appear 200ms ease;
+        }
+
+        .snippet-card.active {
+            display: flex;
+        }
+
+        .snippet-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .snippet-head strong {
+            font-size: 0.86rem;
+            line-height: 1.3;
+        }
+
+        .snippet-code {
+            margin: 0;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: #f8fbf9;
+            color: #1e332a;
+            font-family: var(--mono);
+            font-size: 0.79rem;
+            line-height: 1.4;
+            padding: 10px;
+            overflow: auto;
+            max-height: 220px;
+            white-space: pre;
+        }
+
+        .snippet-note {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.79rem;
+            line-height: 1.3;
+        }
+
+        .empty {
+            border: 1px dashed var(--line);
+            border-radius: 10px;
+            padding: 12px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            background: #fff;
+        }
+
+        .fade-in {
+            animation: appear 240ms ease;
+        }
+
+        @keyframes appear {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 960px) {
+            body {
+                padding: 12px;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+            }
+
+            .hero {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .yt-controls {
+                grid-template-columns: auto auto 1fr auto;
+            }
+
+            .volume,
+            #btnMute {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <section class="section">
-        <h1 class="title">Tabalchi Documentation <img src="https://github.com/user-attachments/assets/0d47f705-74d9-43e4-91b0-a6c8806965ba" width=100/></h1>
-        <h2 class="subtitle">(C) Shreyan Mitra</h2>
-
-        <div class="box">
-            <h3 class="title is-4">Installation</h3>
-            <p>To install the Tabalchi package, use the command:</p>
-            <pre><code>$ pip install Tabalchi</code></pre><br>
-        </div>
-
-        <!-- List of classes -->
-        <div class="box">
-            <h3 class="title is-4">Classes</h3>
-
-            <!-- BeatRange Class -->
+    <main class="shell">
+        <header class="hero fade-in">
             <div>
-                <br><h4 class="title is-5">BeatRange</h4>
-                <br>
-                <p>A class representing an interval of beats.</p>
-                <br>
-                <br><h5 class="title is-6">Parameters</h5>
-                <ul>
-                    <li><b>begin (int):</b> The start beat of the beat range, inclusive.</li>
-                    <li><b>end (int):</b> The end beat of the beat range, exclusive.</li>
-                </ul>
-                <br>
-                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                <ul>
-                    <li>
-                        <b>__init__(self, begin:int, end:int):</b>
-                        <p>Initializes a beat range with the given start (inclusive) and end (exclusive).</p>
-                    </li>
-
-                    <li>
-                        <b>fromString(self, spec:str) -> BeatRange:</b>
-                        <p>Returns a BeatRange object from a string specification.</p>
-                    </li>
-
-                    <li>
-                        <b>range(self) -> int:</b>
-                        <p>Returns the number of beats represented by this BeatRange.</p>
-                    </li>
-
-                    <li>
-                        <b>isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:</b>
-                        <p>Determines if the provided beat ranges cover a contiguous sequence from 1 to the total number of beats.</p>
-                    </li>
-
-                    <li>
-                        <b>getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:</b>
-                        <p>Returns a sorted list of beat ranges between a given beginning and end beat.</p>
-                    </li>
-                </ul>
-
-                <br><h5 class="title is-6">Full Code</h5>
-                <br>
-                <pre><code>
-# A class representing an interval of beats
-class BeatRange():
-    '''
-    Class representing a beat range
-
-    Parameters:
-        begin(int): The start beat of the beat range, inclusive
-        end(int): The end beat of the beat range, exclusive
-    '''
-    def __init__(self, begin:int, end:int):
-        assert begin < end, "BeatRange end beat must be greater than begin beat"
-        self.begin = begin
-        self.end = end
-
-    @classmethod
-    def fromString(self, spec:str) -> BeatRange:
-        numbers = spec.split("-")
-        num1 = int(numbers[0])
-        num2 = int(numbers[1])
-        return BeatRange(num1, num2)
-
-    def range(self) -> int:
-        '''
-        Returns the number of beats represented by this beat range
-        '''
-        return self.end - self.begin
-
-    @classmethod
-    def isContiguousSequence(cls, ranges:List[BeatRange], totalBeats:int) -> bool:
-        '''
-        Returns if a particular beat range convers all beats from 1 to the given total number of beats
-
-        Parameters:
-            ranges(List[BeatRange]): A list of beat ranges
-            totalBeats(int): The total number of beats in the sequence to check the ranges against
-        '''
-        ranges = sorted(ranges, lambda range: range.begin)
-        for i in range(1, len(ranges)):
-            if ranges[i].begin != ranges[i-1].end:
-                return False
-        if(ranges[-1].end < totalBeats or ranges[0].begin != 1):
-            return False
-        return True
-
-    @classmethod
-    def getSubsequence(cls, ranges:List[BeatRange], begin:int, end:int) -> List[BeatRange]:
-        '''
-        Returns the ranges, in sorted order, that fall between a given begin and end beat
-
-        Parameters:
-            ranges(List[BeatRange]): A list of beat ranges to choose from
-            begin(int): The start beat of the desired sequence
-            end(int): The end beat of the desired sequence
-        '''
-        subsequence = []
-        for i in range(len(ranges)):
-            range = ranges[i]
-            if range.begin >= begin and range.end <= end:
-                subsequence.append(range)
-            elif range.begin >= begin and range.end > end:
-                subsequence.append(BeatRange(range.begin, end))
-            elif range.begin < begin and range.end <= end:
-                subsequence.append(BeatRange(begin, range.end))
-            else:
-                subsequence.append(BeatRange(begin, end))
-        return sorted(subsequence)
-                </code></pre><br>
-                <br>
+                <h1>Tabalchi Studio</h1>
+                <p>Live .tabla linting with inline highlights and Grammarly-style quick suggestions.</p>
             </div>
-
-            <!-- Add documentation for other classes and their methods here -->
-
-            <!-- CompositionType Class -->
-            <div>
-                <br><h4 class="title is-5">CompositionType</h4>
-                <p>A class representing a composition type. Ex. Kayda, Rela, etc.</p>
-
-                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-                <ul>
-                    <li><b>registeredTypes:</b> A class variable keeping track of the list of registered composition types.</li>
-                </ul>
-
-                <br><h5 class="title is-6">Parameters</h5>
-                <ul>
-                    <li><b>name (str):</b> The name of the composition type.</li>
-                    <li><b>schema (dict):</b> The structure of the components field of the .tabla file.</li>
-                    <li><b>validityCheck (Callable[[Bol],[bool]]):</b> A function that checks if a given Bol is of the considered composition type.</li>
-                    <li><b>assembler (Callable[[SimpleNamespace], [list[str]]]):</b> Instructions on how to assemble components of the composition.</li>
-                    <li><b>register (bool):</b> Whether to register the composition type.</li>
-                </ul>
-
-                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                <ul>
-                    <li>
-                        <b>__init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):</b>
-                        <p>Initializes a CompositionType object with the given parameters.</p>
-                    </li>
-                </ul>
-
-                <br><h5 class="title is-6">Full Code</h5>
-                <pre><code>
-# A class representing a composition type. Ex. Kayda, Rela, etc.
-# For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
-# Sometimes, differences between types of compositions are hard to quantify, and come down to the "feel" of the composition.
-class CompositionType():
-    registeredTypes = {} # A class variable keeping track of the list of registered composition types
-
-    '''
-    A class to represent a composition type
-
-    Parameters:
-        name(str): The name of the composition type. Ex. Kayda, Rela, etc.
-        schema(dict): The structure of the components field of the .tabla file
-        validityCheck(Callable[[Bol],[bool]]): A function that returns whether a given Bol is of the composition type being considered
-        assembler(Callable[[SimpleNamespace], [list[str]]]): Gives instructions on how to put together the disjointed components of the composition
-        register(bool): Whether to register the composition type (i.e. to save it for future use). By default, True
-    '''
-    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):
-        self.name = name
-        self.schema = schema
-        self.assembler = assembler
-        def preValidityCheck(bol:dict) -> bool:
-            try:
-                validate(instance = bol, schema = schema)
-                return True
-            except Exception:
-                return False
-
-        self.preCheck = preValidityCheck
-        self.mainCheck = validityCheck
-        if register:
-            CompositionType.registeredTypes.update({name: self})
-                </code></pre><br>
-            </div>
-
-            <!-- Numeric Class -->
-            <div>
-                <br><h4 class="title is-5">Numeric</h4>
-                <p>A base class representing something that has an associated number. Implemented as an abstract base class (ABC).</p>
-
-                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                <ul>
-                    <li>
-                        <b>name (abstract property):</b>
-                        <p>A property that subclasses must implement, representing the name of the numeric entity.</p>
-                    </li>
-                    <li>
-                        <b>number (abstract property):</b>
-                        <p>A property that subclasses must implement, representing the number associated with the entity.</p>
-                    </li>
-                </ul>
-
-                <br><h5 class="title is-6">Full Code</h5>
-                <pre><code>
-# A class representing something with an associated number. Ex. Taal, Jati, Speed, etc.
-class Numeric(ABC):
-    '''
-    A class representing something that has an associated number
-    '''
-    @property
-    @abstractmethod
-    def name(self):
-        ...
-
-    @property
-    @abstractmethod
-    def number(self):
-        ...
-                </code></pre><br>
-            </div>
-
-            <!-- Taal Class -->
-            <div>
-                <br><h4 class="title is-5">Taal</h4>
-                <p>A class representing a Taal. Ex. Teental, Rupaak, etc.</p>
-
-                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-                <ul>
-                    <li><b>registeredTaals:</b> A class variable keeping track of the list of registered taals.</li>
-                </ul>
-
-                <br><h5 class="title is-6">Parameters</h5>
-                <ul>
-                    <li><b>beats (int):</b> The number of beats in the taal.</li>
-                    <li><b>taali (list[int]):</b> A list of beats where the clap is marked.</li>
-                    <li><b>khali (list[int]):</b> A list of beats where the wave (khali) is marked.</li>
-                    <li><b>name (Union[str, None]):</b> The name of the taal, defaults to number of beats if not provided.</li>
-                    <li><b>theka (Union[str, None]):</b> The standard theka for the taal.</li>
-                    <li><b>register (bool):</b> Whether to register the taal (default: True).</li>
-                </ul>
-
-                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                <ul>
-                    <li>
-                        <b>__init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):</b>
-                        <p>Initializes a Taal object with the given parameters and registers it if specified.</p>
-                    </li>
-                    <li>
-                        <b>name (property):</b>
-                        <p>Returns the name of the taal.</p>
-                    </li>
-                    <li>
-                        <b>number (property):</b>
-                        <p>Returns the number of beats in the taal.</p>
-                    </li>
-                    <li>
-                        <b>theka (property):</b>
-                        <p>Returns the theka of the taal.</p>
-                    </li>
-                </ul>
-
-                <br><h5 class="title is-6">Full Code</h5>
-                <pre><code>
-# A class representing a Taal
-class Taal(Numeric):
-    registeredTaals = {}
-    '''
-    A class representing a taal. Ex. Teental, Rupaak, etc.
-    '''
-    def __init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):
-        self.beats = beats
-        self.taali = taali
-        self.khali = khali
-        if not name:
-            self.id = str(beats)
-        else:
-            self.id = name
-        self.theka = theka
-        if register:
-            Taal.registeredTaals.update({self.id: self})
-
-    @property
-    def name(self):
-        return self.id
-
-    @property
-    def number(self):
-        return self.beats
-
-    @property
-    def theka(self):
-        return self.theka
-                </code></pre><br>
-            </div>
-
-            <!-- Documentation for other classes will continue here -->
-
-            <!-- Jati Class -->
-            <div>
-                <br><h4 class="title is-5">Jati</h4>
-                <p>A class representing a Jati, which denotes the number of syllables per beat.</p>
-
-                <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-                <ul>
-                    <li><b>registeredJatis:</b> A class variable keeping track of the list of registered Jatis.</li>
-                </ul>
-
-                <br><h5 class="title is-6">Parameters</h5>
-                <ul>
-                    <li><b>syllables (int):</b> The number of syllables in this Jati.</li>
-                    <li><b>name (Union[str, None]):</b> The name of the Jati, defaults to number of syllables if not provided.</li>
-                    <li><b>register (bool):</b> Whether to register the Jati (default: True).</li>
-                </ul>
-
-                <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                <ul>
-                    <li>
-                        <b>__init__(self, syllables:int, name:Union[str, None] = None, register = True):</b>
-                        <p>Initializes a Jati object with the given parameters and registers it if specified.</p>
-                    </li>
-                    <li>
-                        <b>name (property):</b>
-                        <p>Returns the name of the Jati.</p>
-                    </li>
-                    <li>
-                        <b>number (property):</b>
-                        <p>Returns the number of syllables in the Jati.</p>
-                    </li>
-                </ul>
-
-                <br><h5 class="title is-6">Full Code</h5>
-                <pre><code>
-# A class representing a jati
-class Jati(Numeric):
-    registeredJatis = {}
-    '''
-    A class representing a Jati
-    '''
-    def __init__(self, syllables:int, name:Union[str, None] = None, register = True):
-        self.syllables = syllables
-        if not name:
-            self.id = str(syllables)
-        else:
-            self.id = name
-        if register:
-            Jati.registeredJatis.update({self.id: self})
-
-    @property
-    def name(self):
-        return self.id
-
-    @property
-    def number(self):
-        return self.syllables
-                </code></pre><br>
-            </div>
-            <!-- SpeedClasses Class -->
-           <div>
-               <br><h4 class="title is-5">SpeedClasses</h4>
-               <p>A class representing different categories of speed for a composition.</p>
-
-               <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-               <ul>
-                   <li><b>registeredSpeeds:</b> A class variable keeping track of the list of registered speed classes.</li>
-               </ul>
-
-               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-               <ul>
-                   <li>
-                       <b>__init__(self, inClassCheck: Callable[[int], bool], randomGenerate: Callable[[], int], name: str, register: bool = True):</b>
-                       <p>Initializes a speed class with checks and generators for speed.</p>
-                   </li>
-                   <li>
-                       <b>getSpeedClassFromBPM(cls, bpm: int) -> str:</b>
-                       <p>Returns the name of the speed class based on beats per minute (BPM).</p>
-                   </li>
-               </ul>
-
-               <br><h5 class="title is-6">Full Code</h5>
-               <pre><code># A class that represents a speed category
-class SpeedClasses:
-   registeredSpeeds = {}
-   '''
-   A class representing a Speed class
-   '''
-   def __init__(self, inClassCheck: Callable[[int], bool], randomGenerate:Callable[[], int], name:str, register:bool = True):
-       self.check = inClassCheck
-       self.generator = randomGenerate
-       self.id = name
-       if register:
-           SpeedClasses.registeredSpeeds.update({name: self})
-
-   @classmethod
-   def getSpeedClassFromBPM(cls, bpm:int) -> str:
-       for key, value in SpeedClasses.registeredSpeeds.items():
-           if value.check(bpm):
-               return key
-               </code></pre><br>
-           </div>
-
-           <!-- Speed Class -->
-           <div>
-               <br><h4 class="title is-5">Speed</h4>
-               <p>A class representing a specific speed in beats per minute (BPM).</p>
-
-               <br><h5 class="title is-6">Parameters</h5>
-               <ul>
-                   <li><b>specifier (Union[int, str]):</b> Either an integer for BPM or a string specifying the speed class.</li>
-               </ul>
-
-               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-               <ul>
-                   <li>
-                       <b>__init__(self, specifier: Union[int, str]):</b>
-                       <p>Initializes a Speed object based on the specified BPM or speed class.</p>
-                   </li>
-                   <li>
-                       <b>name (property):</b>
-                       <p>Returns the name of the speed class.</p>
-                   </li>
-                   <li>
-                       <b>number (property):</b>
-                       <p>Returns the BPM.</p>
-                   </li>
-               </ul>
-
-               <br><h5 class="title is-6">Full Code</h5>
-               <pre><code># A class that represents a specific speed
-class Speed(Numeric):
-   '''
-   Class that represents a particular speed. Ex. 62bpm
-   '''
-   def __init__(self, specifier:Union[int, str]):
-       if isinstance(specifier, str):
-           self.name = specifier
-           self.bpm = SpeedClasses[specifier].generator()
-       else:
-           self.bpm = specifier
-           self.name = SpeedClasses.getSpeedClassFromBPM(specifier)
-
-   @property
-   def name(self):
-       return self.name
-
-   @property
-   def number(self):
-       return self.bpm
-               </code></pre><br>
-           </div>
-
-           <!-- Notation Class -->
-           <div>
-               <br><h4 class="title is-5">Notation</h4>
-               <p>An abstract base class for all types of notations.</p>
-
-               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-               <ul>
-                   <li>
-                       <b>toString(cls, bol: Bol):</b>
-                       <p> An abstract method to be implemented by subclasses to convert a Bol to string.</p>
-                   </li>
-                   <li>
-                       <b>display(cls, bol: Bol, fileName: str):</b>
-                       <p>Displays the notation to a specified file.</p>
-                   </li>
-               </ul>
-
-               <br><h5 class="title is-6">Full Code</h5>
-               <pre><code>class Notation(ABC):
-   VALID_NOTATIONS = ["Bhatkande", "Paluskar"]
-
-   @classmethod
-   @abstractmethod
-   def toString(self, bol:Bol):
-       ...
-
-   @classmethod
-   def display(cls, bol:Bol, fileName:str):
-       print(Notation.toString(bol), file=fileName)
-               </code></pre><br>
-           </div>
-
-           <!-- Bol Class -->
-           <div>
-               <br><h4 class="title is-5">Bol</h4>
-               <p>A class representing a Bol, which is a collection of beats in a tabla composition.</p>
-
-               <br><h5 class="title is-6">Parameters</h5>
-               <ul>
-                   <li><b>beats (list[Beat]):</b> A list of Beat objects that constitute the bol.</li>
-                   <li><b>notationClass (Union[Type[Notation], None]):</b> The notation class used for displaying the bol.</li>
-               </ul>
-
-               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-               <ul>
-                   <li>
-                       <b>__init__(self, beats: list[Beat], notationClass: Union[Type[Notation], None] = None):</b>
-                       <p>Initializes a Bol object with the specified beats and optional notation.</p>
-                   </li>
-                   <li>
-                       <b>play(self):</b>
-                       <p>Plays the entire Bol composition.</p>
-                   </li>
-                   <li>
-                       <b>write(self, filename: str, notationClass: Union[Type[Notation], None]):</b>
-                       <p> Writes the Bol to a file using the desired notation.</p>
-                   </li>
-               </ul>
-
-               <br><h5 class="title is-6">Full Code</h5>
-               <pre><code>class Bol():
-   '''
-   A class representing a bol, a collection of beats
-   '''
-   def __init__(self, beats:list[Beat], notationClass:Union[Type[Notation], None] = None):
-       self.beats = beats
-       self.notationClass = notationClass
-       self.markedBeats = []
-       self.markedPhrases = []
-       for beat in beats:
-           for i in range(len(beat.phrases.keys())):
-               lst = list(beat.phrases.keys())
-               if(beat.markers[i] == 1):
-                   self.markedBeats.append(beat)
-                   self.markedPhrases.append(lst[i])
-
-   def play(self):
-       for beat in self.beats:
-           beat.play()
-
-   def write(self, filename:str, notationClass:Union[Type[Notation], None]):
-       if notationClass is not None:
-           notationClass.display(self, filename)
-       elif self.notationClass is not None:
-           self.notationClass.display(self, filename)
-       else:
-           raise ValueError("No Notation object found to use.")
-               </code></pre><br>
-           </div>
-
-           <!-- Further documentation for the remaining classes -->
-
-           <!-- Beat Class -->
-           <div>
-               <br><h4 class="title is-5">Beat</h4>
-               <p>A class representing a collection of phrases in a beat.</p>
-
-               <br><h5 class="title is-6">Parameters</h5>
-               <ul>
-                   <li><b>number (int):</b> The number of the beat.</li>
-                   <li><b>taaliKhaliOrNone (Literal[-1,0,1]):</b> Indicator for clapped (1), waved (0), or neutral (-1).</li>
-                   <li><b>saam (bool):</b> Indicates if this is a starting beat.</li>
-                   <li><b>phrases (OrderedDict[Phrase, int]):</b> Phrases present in this beat with associated syllables.</li>
-                   <li><b>speed (int):</b> The speed of the beat in BPM.</li>
-                   <li><b>markers (list[Literal[0,1]]):</b> Markers indicating noteworthy phrases within the beat.</li>
-               </ul>
-
-               <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-               <ul>
-                   <li>
-                       <b>__init__(...):</b>
-                       <p>Initializes a Beat object with the specified parameters.</p>
-                   </li>
-                   <li>
-                       <b>play(self):</b>
-                       <p>Plays the sound files corresponding to the phrases in the beat.</p>
-                   </li>
-               </ul>
-
-               <br><h5 class="title is-6">Full Code</h5>
-               <pre><code>class Beat():
-                 '''
-    A class representing a collection of phrases
-    '''
-    def __init__(self, number:int, taaliKhaliOrNone:Literal[-1,0,1], saam:bool, phrases:OrderedDict[Phrase, int], speed:int, markers:list[Literal[0,1]]):
-        self.number = number
-        assert len(markers) == len(phrases.keys()), "Invalid length for marker array"
-        self.markers = markers
-        self.clap = taaliKhaliOrNone
-        self.saam = saam
-        self.speed = speed
-        duration = 60.0/speed #In seconds (this is the duration of the entire beat)
-        jati = 0
-        for _,val in phrases.items():
-            jati += val
-        syllableDuration = duration/jati #This is duration of a specific segment of the beat
-        self.multipliers = []
-        self.soundFiles = []
-        for phrase, syllables in phrases.items():
-            self.multipliers.append((syllables*1.0)/phrase.syllables) * (syllableDuration/0.25)) #Since, in the original recording, one syllable = 0.25 seconds
-            self.soundFiles.append(phrase.soundBite.recording)
-        self.phrases = phrases
-
-    def play(self):
-        for index in range(len(self.soundFiles)):
-            s = AudioSegment(self.soundFiles[i])
-            if self.multipliers[i] >= 1:
-                s = s.speedup(self.multipliers[i])
-            else:
-                s = ae.speed_down(s, self.multipliers[i])
-            pydubplay(s)
-                    </code></pre><br>
-                </div>
-
-                <!-- Fetcher Class -->
-                <div>
-                    <br><h4 class="title is-5">Fetcher</h4>
-                    <p>A class containing static methods to fetch sounds and Variables (Selected if too many to write).</p>
-
-                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                    <ul>
-                        <li>
-                            <b>fetch(cls, id, specifier=None, componentIDs=None) -> Sound:</b>
-                            <p>Fetches a sound object given its identifier, or synthesizes it from components if necessary.</p>
-                        </li>
-                        <li>
-                            <b>addRecording(cls, file):</b>
-                            <p>Adds an audio file recording to the recordings folder.</p>
-                        </li>
-                    </ul>
-
-                    <br><h5 class="title is-6">Full Code</h5>
-                    <pre><code>class Fetcher:
-    #Class that contains several static methods involving fetching sounds and Variables (Selected if too many to write)
-    @classmethod
-    def fetch(cls, id, specifier = None, componentIDs = None) -> Sound:
-        '''
-        Fetch the Sound object given a phrase identifier, or synthesize it from componentIDs given a specifier
-
-        Parameters:
-            id(string): The identifier for the sound
-            specifier(string or None): If the sound does not exist and needs to be specified, whether the phrase is a composite or sequential phrase
-            componentIDs(list[string] or None): A list of the identifiers making up a composite or sequential phrases
-
-        Returns:
-            newSound (Sound) OR oldSound (Sound): The Sound instance representing the given id
-        '''
-        oldSound = Sound.sounds.get(id)
-        if oldSound:
-            return oldSound
-        elif not specifier:
-            raise ValueError("Did not find soundbite. Have you preregistered the id? Otherwise, you should just pass the soundBite when initializing the phrase.")
-        elif specifier == "composite":
-            assert componentIDs, "Need to specify component ids for composite phrases."
-            newSound = Sound(id, Sound.merge(Sound.sounds.get(c) for c in componentIDs))
-            return newSound
-        elif specifier == "sequential":
-            newSound = Sound(id, Sound.join(Sound.sounds.get(c) for c in componentIDs))
-            return newSound
-
-    @classmethod
-    def addRecording(cls, file):
-        '''
-        A method to add an audio file recording to the recordings folder.
-            file(str): Path to MIDI file
-        '''
-        os.rename(file, "recordings/" + os.path.basename(file))
-                    </code></pre><br>
-                </div>
-
-                <!-- Continue documenting remaining classes similarly -->
-
-                <!-- Sound Class -->
-                <div>
-                    <br><h4 class="title is-5">Sound</h4>
-                    <p>A class representing a soundbite associated with a phrase on the tabla.</p>
-
-                    <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-                    <ul>
-                        <li><b>sounds (dict):</b> Stores all instantiated sounds.</li>
-                    </ul>
-
-                    <br><h5 class="title is-6">Parameters</h5>
-                    <ul>
-                        <li><b>id (string):</b> The unique identifier of the soundbite.</li>
-                        <li><b>recording (string):</b> The file name of an audio file in the recordings folder.</li>
-                    </ul>
-
-                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                    <ul>
-                        <li>
-                            <b>__init__(self, id, recording):</b>
-                            <p>Initializes a Sound object with the specified ID and recording file.</p>
-                        </li>
-                        <li>
-                            <b>play(self):</b>
-                            <p>Plays the sound represented by this Sound object.</p>
-                        </li>
-                        <li>
-                            <b>merge(cls, sounds) -> str:</b>
-                            <p>For composite sounds, plays all sounds simultaneously and returns the new file name.</p>
-                        </li>
-                        <li>
-                            <b>join(cls, sounds) -> str:</b>
-                            <p>For sequential sounds, plays all sounds one after the other and returns the new file name.</p>
-                        </li>
-                    </ul>
-
-                    <br><h5 class="title is-6">Full Code</h5>
-                    <pre><code>class Sound():
-    sounds = {}
-    '''
-    Class that represents the soundbite associated with a particular phrase
-
-    Class Variables (Selected if too many to write):
-        sounds(dict): stores all instantiated sounds
-
-    Parameters:
-        id(string): The unique identifier of the soundbite, typically the name of the associated phrase
-        recording(string): The file name of a audio file in the recordings/ folder. The reocrding must be 0.25 second per syllable, i.e. equivalent to playing Chatusra Jati at 60 bpm
-    '''
-    def __init__(self, id, recording):
-        self.id = id
-        self.recording = "recordings/" + recording
-        Sound.sounds.update({id: self})
-
-    def play(self):
-        '''
-        Plays the sound represented by this Sound object
-        '''
-        playsound(self.recording)
-
-    @classmethod
-    def merge(cls, sounds) -> str:
-        '''
-        For composite sounds, play all the sounds simultaneously
-        '''
-        assert len(sounds) > 1, "More than 1 sound must be provided to merge"
-        mergedSound = AudioSegment.from_file(sounds[0].recording)
-        fileName = sounds[0].id
-        for i in range(1, len(sounds)):
-            mergedSound = mergedSound.overlay(AudioSegment.from_file(sounds[i].recording), position = 0)
-            fileName += "+" + sounds[i].id
-
-            fileName = "recordings/" + fileName + ".m4a"
-            mergedSound.export(fileName, format = "ipod")
-            return fileName
-
-        @classmethod
-        def join(cls, sounds) -> str:
-            '''
-            For sequential sounds, play all the sounds one after the other, in the order given
-
-            Parameters:
-            sounds(list[Sound]): the individual component sounds to play
-
-            Returns:
-            newRecording(string): An audio file containing the combination requested
-            '''
-            assert len(sounds) > 1, "More than 1 sound must be provided to join"
-            mergedSound = AudioSegment.from_file(sounds[0].recording)
-            fileName = sounds[0].id
-            for i in range(1, len(sounds)):
-                mergedSound = mergedSound + AudioSegment.from_file(sounds[i].recording)
-                fileName += sounds[i].id
-            fileName = "recordings/" + fileName + ".m4a"
-            mergedSound.export(fileName, format = "ipod")
-            return fileName
-                        </code></pre><br>
+            <div class="pill" id="summaryPill">Analyzing...</div>
+        </header>
+
+        <section class="workspace fade-in">
+            <article class="card">
+                <div class="card-header">
+                    <h2>Composition Editor</h2>
+                    <div class="controls">
+                        <button class="primary" id="btnTemplate">Load template</button>
+                        <button id="btnFormat">Format JSON</button>
+                        <button id="btnExport">Export .tabla</button>
                     </div>
-
-                    <!-- Phrase Class -->
-                    <div>
-                        <br><h4 class="title is-5">Phrase</h4>
-                        <p>A class representing a phrase on the tabla.</p>
-
-                        <br><h5 class="title is-6">Class Variables (Selected if too many to write)</h5>
-                        <ul>
-                            <li><b>registeredPhrases:</b> The phrases that have been registered so far.</li>
-                        </ul>
-
-                        <br><h5 class="title is-6">Parameters</h5>
-                        <ul>
-                            <li><b>mainID (string):</b> The name of the phrase.</li>
-                            <li><b>syllables (int):</b> Number of syllables in this phrase.</li>
-                            <li><b>position (string):</b> Position where this phrase is played (baiyan, daiyan, or both).</li>
-                            <li><b>info (string):</b> Information about how to play this phrase.</li>
-                            <li><b>aliases (Optional[List[str]]):</b> Other names for this phrase in compositions.</li>
-                            <li><b>soundBite (Union[str, Sound]):</b> Either "Fetch" if sound is preregistered or a path/Sound object.</li>
-                            <li><b>register (bool):</b> Whether this phrase should be registered.</li>
-                        </ul>
-
-                        <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                        <ul>
-                            <li>
-                                <b>__init__(self, mainID, syllables=1, position='baiyan', info='No info provided', aliases=None, soundBite='Fetch', register=True):</b>
-                                <p>Initializes a Phrase object with the specified parameters and registers it if specified.</p>
-                            </li>
-                            <li>
-                                <b>play(self):</b>
-                                <p>Plays the sound associated with this Phrase object.</p>
-                            </li>
-                            <li>
-                                <b>createCompositePhrase(cls, mainID, componentIDs, aliases=None, soundBite='Fetch', register=True):</b>
-                                <p>Creates a composite Phrase given component phrases.</p>
-                            </li>
-                            <li>
-                                <b>createSequentialPhrase(cls, mainID, componentIDs, position, aliases=None, soundBite='Fetch', register=True):</b>
-                                <p>Creates a sequential Phrase given component phrases.</p>
-                            </li>
-                        </ul>
-
-                        <br><h5 class="title is-6">Full Code</h5>
-                        <pre><code>class Phrase():
-        registeredPhrases = {}  # The phrases that have been registered so far
-
-        '''
-        Class that represents a phrase on the tabla
-        '''
-        def __init__(self, mainID, syllables=1, position='baiyan', info='No info provided', aliases=None, soundBite='Fetch', register=True):
-            if not isinstance(soundBite, Sound) and soundBite != "Fetch":
-                soundBite = Sound(mainID, soundBite)
-            mainID = mainID.lower()
-            self.ids = [mainID]
-            if aliases:
-                self.ids += aliases
-            self.description = f"Phrase: {self.ids}\nPlayed on {position}.\n{info}\nNo. of syllables: {syllables}"
-            self.syllables = syllables
-            self.position = position
-            self.info = info
-            self.soundBite = soundBite if soundBite != "Fetch" else Fetcher.fetch(mainID)
-            if register:
-                for id in self.ids:
-                    Phrase.registeredPhrases.update({id: self})
-
-        def __repr__(self):
-            return str(self.ids[0])
-
-        def play(self):
-            self.soundBite.play()
-
-        @classmethod
-        def createCompositePhrase(cls, mainID, componentIDs, aliases=None, soundBite='Fetch', register=True):
-            '''
-            Creates a composite phrase
-
-            Parameters:
-            componentIDs(list): IDs of the component phrases that make up this composite phrase
-            '''
-            assert len(componentIDs) == 2, "A composite phrase must have exactly 2 component phrases"
-            component1, component2 = map(Phrase.registeredPhrases.get, componentIDs)
-            assert component1.position != component2.position and component1.position in ["baiyan", "daiyan"] and component2.position in ["baiyan", "daiyan"], "Components must be played on different drums"
-            x = cls(mainID=mainID,
-                    syllables=max(component1.syllables, component2.syllables),
-                    position="both drums",
-                    info=f"Play the following two phrases simultaneously: \n1) {component1.info}\n2) {component2.info}",
-                    aliases=aliases,
-                    soundBite=soundBite if soundBite else Fetcher.fetch(mainID, "composite", componentIDs),
-                    register=register
-            )
-            return x
-
-        @classmethod
-        def createSequentialPhrase(cls, mainID, componentIDs, position, aliases=None, soundBite='Fetch', register=True):
-            '''
-            Creates a sequential phrase
-
-            Parameters:
-            componentIDs(list): IDs of the sequential phrases that make up this composite phrase
-            '''
-            assert all(id in Phrase.registeredPhrases for id in componentIDs), "Must register component phrases first."
-            syllables = sum(Phrase.registeredPhrases[id].syllables for id in componentIDs)
-            info = "Play the following phrases in succession:" + "".join(
-                f"\n{i}) {Phrase.registeredPhrases[componentIDs[i]].info}" for i in range(len(componentIDs)))
-            x = cls(mainID=mainID,
-                    syllables=syllables,
-                    position=position,
-                    info=info,
-                    aliases=aliases,
-                    soundBite=soundBite if soundBite else Fetcher.fetch(mainID, "sequential", componentIDs),
-                    register=register
-            )
-            return x
-                        </code></pre><br>
+                </div>
+                <div class="editor-wrap">
+                    <textarea id="editor" spellcheck="false"></textarea>
+                    <div class="status" id="statusLine"></div>
+                    <div class="preview">
+                        <pre id="highlightView"></pre>
                     </div>
+                    <div class="playback-panel">
+                        <div class="yt-controls">
+                            <button class="icon-btn" id="btnPlayPause" aria-label="Play or pause" title="Play or pause">
+                                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+                                <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h5v14H6zM13 5h5v14h-5z"></path></svg>
+                                <span class="sr-only">Play or pause</span>
+                            </button>
+                            <button class="icon-btn" id="btnStop" aria-label="Stop" title="Stop">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"></path></svg>
+                                <span class="sr-only">Stop</span>
+                            </button>
+                            <input class="scrubber" id="playbackProgress" type="range" min="0" max="1000" step="1" value="0" aria-label="Playback progress">
+                            <span class="timecode" id="playbackTime">0:00 / 0:00</span>
+                            <button class="icon-btn" id="btnMute" aria-label="Mute" title="Mute">
+                                <svg class="icon-volume-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9zM16.5 12c0-1.8-1-3.3-2.5-4.1v8.2c1.5-.8 2.5-2.3 2.5-4.1zM14 3.2v2.1c2.9 1 5 3.8 5 6.7s-2.1 5.7-5 6.7v2.1c4-1 7-4.6 7-8.8s-3-7.8-7-8.8z"></path></svg>
+                                <svg class="icon-volume-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 12c0-1.8-1-3.3-2.5-4.1v1.8L16.3 12l-2.3 2.3v1.8c1.5-.8 2.5-2.3 2.5-4.1zM19 12c0 .9-.2 1.8-.6 2.6l1.5 1.5c.7-1.2 1.1-2.7 1.1-4.1 0-4.2-3-7.8-7-8.8v2.1c2.9 1 5 3.8 5 6.7zM4.3 3L3 4.3 7.7 9H3v6h4l5 5v-6.7l4.7 4.7L20.7 22 22 20.7z"></path></svg>
+                                <span class="sr-only">Mute</span>
+                            </button>
+                            <input class="volume" id="playbackVolume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+                        </div>
+                        <div class="playback-meta">
+                            <span id="playbackMeta">Playback sequence not ready.</span>
+                            <span id="playbackHint"></span>
+                        </div>
+                        <div class="playback-track" id="playbackTrack">
+                            <span class="empty">Enter a valid .tabla JSON to build a playable sequence.</span>
+                        </div>
+                        <div class="controls">
+                            <button id="btnExportAudio">Export audio</button>
+                        </div>
+                    </div>
+                </div>
+            </article>
 
-                    <!-- Continue documenting remaining classes similarly -->
+            <aside class="side">
+                <section class="card">
+                    <div class="card-header">
+                        <h3>Suggestions</h3>
+                        <div class="controls">
+                            <button id="btnFixAll">Apply all safe fixes</button>
+                        </div>
+                    </div>
+                    <div class="diagnostics" id="diagnosticList"></div>
+                </section>
 
-                    <!-- CompositionGenerator Class -->
-                    <div>
-                        <br><h4 class="title is-5">CompositionGenerator</h4>
-                        <p>A class that provides static methods for generating compositions using the Llama model.</p>
-
-                        <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
+                <section class="card">
+                    <div class="card-header">
+                        <h3>Quick Rules</h3>
+                    </div>
+                    <div class="cheatsheet">
                         <ul>
-                            <li>
-                                <b>generate(cls, type:str, taal:Union[str, int], speedClass:str, jati:Union[str, int], school:str, token:str):</b>
-                                <p>Generates a composition given parameters using the Llama model available on HuggingFace.</p>
-                            </li>
+                            <li>Top-level keys: type, name, components, taal, speed, jati, playingStyle, display.</li>
+                            <li>Use | to separate beats and keep each beat non-empty.</li>
+                            <li>Unknown bols get nearest-token suggestions when possible.</li>
+                            <li>Khali may be Infer or an explicit phrase string.</li>
                         </ul>
+                    </div>
+                </section>
 
-                        <br><h5 class="title is-6">Full Code</h5>
-                        <pre><code>class CompositionGenerator():
-        # Class that provides a static method to generate a composition
-        @classmethod
-        def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token: str):
-            '''
-            A method that generates a composition given parameters using the Llama model available on HuggingFace
-            '''
-            warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
-            warnings.warn("Execution time might be excessive depending on your hardware.")
-            phraseInfo = "The following phrases are defined by the user on the tabla, along with a description of how to play them: \n" + "\n".join([key + "." + val.description for key, val in Phrase.registeredPhrases.items()])
-            mainPrompt = "Using the above phrases only, compose a " + type + " in taal with name/beats " + taal + " and speed class " + speedClass + ". The composition should be in jati with name/syllables per beat " + jati + " and in the " + school + " style of playing. Components of the composition should be marked appropriately."
-            symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + open("template.tabla, "r").read() + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
-        end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
-        prompt = phraseInfo + mainPrompt + symbolPrompt + end
-        messages = [
-            {"role": "user", "content": prompt},
-        ]
-        pipe = pipeline("text-generation", model="meta-llama/Meta-Llama-3-70B-Instruct", token = token, torch_dtype=torch.float16, device_map="auto")
-        return pipe(messages, do_sample = True, num_return_sequences = 1, eos_token_id = pipe.tokenizer.eos_token_id, return_full_text = False)[0]['generated_text']
-                    </code></pre><br>
-                </div>
+                <section class="card">
+                    <div class="card-header">
+                        <h3>Python Snippets</h3>
+                    </div>
+                    <div class="api-snippets">
+                        <div class="snippet-tabs">
+                            <button class="snippet-tab active" data-target="parsePlay">Notation</button>
+                            <button class="snippet-tab" data-target="khaliPreview">Khali Info</button>
+                            <button class="snippet-tab" data-target="generateLocal">Llama Local</button>
+                        </div>
+                        
+                        <article class="snippet-card active" id="card-parsePlay">
+                            <div class="snippet-head">
+                                <strong>Parse, play, and export</strong>
+                                <button class="copy-snippet" data-snippet="parsePlay">Copy</button>
+                            </div>
+                            <pre class="snippet-code"><code id="snippet-parse-play"></code></pre>
+                            <p class="snippet-note">Tip: Make sure you put this script next to a valid .tabla file.</p>
+                        </article>
 
-                <!-- AudioToBolConvertor Class -->
-                <div>
-                    <br><h4 class="title is-5">AudioToBolConvertor</h4>
-                    <p>A class providing static methods to transcribe a bol from an audio recording.</p>
+                        <article class="snippet-card" id="card-khaliPreview">
+                            <div class="snippet-head">
+                                <strong>Preview inferred khali</strong>
+                                <button class="copy-snippet" data-snippet="khaliPreview">Copy</button>
+                            </div>
+                            <pre class="snippet-code"><code id="snippet-khali-preview"></code></pre>
+                            <p class="snippet-note">Checks logic before feeding to LLM context.</p>
+                        </article>
 
-                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                    <ul>
-                        <li>
-                            <b>convert(cls, recording:str, speed:int, jati:int) -> str:</b>
-                            <p>Generates the bol transcription from an audio recording.</p>
-                        </li>
-                        <li>
-                            <b>getMostSimilarSound(cls, snippet, from:Dict[str, str]) -> str:</b>
-                            <p>Gets the most similar sounding phrase to a given audio snippet.</p>
-                        </li>
-                    </ul>
+                        <article class="snippet-card" id="card-generateLocal">
+                            <div class="snippet-head">
+                                <strong>Generate composition</strong>
+                                <button class="copy-snippet" data-snippet="generateLocal">Copy</button>
+                            </div>
+                            <pre class="snippet-code"><code id="snippet-generate-local"></code></pre>
+                            <p class="snippet-note">Use Ollama or any compatible local endpoint.</p>
+                        </article>
+                    </div>
+                </section>
+            </aside>
+        </section>
+    </main>
 
-                    <br><h5 class="title is-6">Full Code</h5>
-                    <pre><code>class AudioToBolConvertor():
-    # Class that provides a static method to transcribe a bol given the recording of a composition
-    @classmethod
-    def convert(cls, recording:str, speed:int, jati:int) -> str:
-        '''
-        A method that generates the bol given an audio recording
-        '''
-        warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
-        currentSyllableDuration = 60.0/(speed*jati)
-        desiredSyllableDuration = 0.25
-        sound = AudioSegment.from_file(recording)
-        if currentSyllableDuration > desiredSyllableDuration:
-            sound = sound.speedup(currentSyllableDuration / desiredSyllableDuration)
-        elif currentSyllableDuration < desiredSyllableDuration:
-            sound = ae.speed_down(sound, currentSyllableDuration / desiredSyllableDuration)
-        # Parse the audio for every 0.25 second snippet, comparing it to known recordings
-        recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases.items()}
-        bolString = ""
-        marker = 0
-        while marker < sound.duration_seconds * 1000:
-            add = cls.getMostSimilarSound(snippet=sound[marker: marker + 250], from=recordings)
-            marker += Phrase.registeredPhrases[add].syllables * 250
-            bolString += add
-        return bolString
+    <script>
+        const DEFAULT_TEMPLATE = `{
+  "type": "Kayda",
+  "name": "My Composition",
+  "components": {
+    "mainTheme": {
+      "bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
+      "khali": "Infer"
+    },
+    "paltas": [
+      {
+        "bhari": "dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | dha ti ge ne | dha ti dha ge | dhin na ge na | tete ge ne | dha ti dha ge | dhin na ge na | tete tete | ge na tete | ge na dha ti | dha tete dha | ge ne dha ge | tin na ke na",
+        "khali": "Infer"
+      }
+    ],
+    "tihai": "dha ti ge ne | dha ti dha ge | dhin na ge na | dha s s s | dhin na ge na | dha s s s | dhin na ge na | dha s s s"
+  },
+  "taal": "Ektaal",
+  "speed": 60,
+  "jati": "Chatusra",
+  "playingStyle": "Lucknow",
+  "display": "Bhatkande"
+}`;
 
-    @classmethod
-    def getMostSimilarSound(cls, snippet, from:Dict[str, str]) -> str:
-        '''
-        Gets the most similar sounding bol to a given audio snippet
-        '''
-        snippet.export("snippetTemp", format = "m4a")
-        _, encoded = acoustid.fingerprint_file("snippetTemp")
-        fingerprint, _ = chromaprint.decode_fingerprint(encoded)
-        references = {}
-        for key, val in from.items():
-            _, e = acoustid.fingerprint_file(key)
-            f, _ = chromaprint.decode_fingerprint(e)
-            references[val] = f
+        const PYTHON_SNIPPETS = {
+            parsePlay: `from Tabalchi import BolParser, Bhatkande, Paluskar
 
-        from operator import xor
-        maxSimilarity = 0
-        mostSimilarPhrase = None
-        for phrase, print in references.items():
-            max_hamming_weight = 32 * min(len(fingerprint), len(print))
-            hamming_weight = sum(
-                sum(c == "1" for c in bin(xor(fingerprint[i], print[i])))
-                for i in range(min(len(fingerprint), len(print)))
-            )
-            if (hamming_weight / max_hamming_weight) > maxSimilarity:
-                maxSimilarity = hamming_weight / max_hamming_weight
-                mostSimilarPhrase = phrase
-        return mostSimilarPhrase
-                    </code></pre><br>
-                </div>
+# Replace with your .tabla path
+tabla_path = "template.tabla"
 
-                <!-- BolParser Class -->
-                <div>
-                    <br><h4 class="title is-5">BolParser</h4>
-                    <p>A class that parses a .tabla file and converts it to a concise, playable form.</p>
+parser = BolParser()
+bol = parser.parse(tabla_path)
 
-                    <br><h5 class="title is-6">Class Constants and Variables (Selected if too many to write)</h5>
-                    <ul>
-                        <li><b>BEAT_DIVIDER:</b> The character used to differentiate beats.</li>
-                        <li><b>PHRASE_SPLITTER:</b> Indicates a sequential phrase split to match jati.</li>
-                        <!-- Add more constants as per the code definitions -->
-                    </ul>
+# Play audio
+bol.play()
 
-                    <br><h5 class="title is-6">Functions (Selected if too many to write)</h5>
-                    <ul>
-                        <li>
-                            <b>parse(cls, file) -> Bol:</b>
-                            <p>Parses a .tabla file and returns a Bol object representing the composition.</p>
-                        </li>
-                        <!-- Add descriptions for methods and validations -->
-                    </ul>
+# Export both notation styles
+bol.write("output_bhatkande.txt", Bhatkande)
+bol.write("output_paluskar.txt", Paluskar)
 
-                    <br><h5 class="title is-6">Full Code</h5>
-                    <pre><code>class BolParser():
-    '''
-    Class that parses a .tabla file and converts it to a concise, playable form
-    '''
-    BEAT_DIVIDER = "|"
-    PHRASE_SPLITTER = "-"
-    PHRASE_JOINER_OPEN = "["
-    PHRASE_JOINER_CLOSE = "]"
-    MARKER = "~"
+print("Done: played and exported notation files.")`,
+            khaliPreview: `import json
+from pathlib import Path
+from Tabalchi.main import BolParser
 
-    # Download recordings folder if it does not exist already
-    destination = Path.cwd() / "recordings"
-    destination.mkdir(exist_ok=True, parents=True)
-    fs = fsspec.filesystem("github", org="shreyanmitra", repo="Tabalchi")
-    fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
+tabla_path = Path("template.tabla")
+data = json.loads(tabla_path.read_text(encoding="utf-8"))
 
-    # Initialize components like phrases, composite phrases, sequential phrases, etc.
-    # Example of initializing phrases (complete this based on code):
+main_theme = data["components"]["mainTheme"]
+khali_raw = str(main_theme.get("khali", "")).strip().lower()
 
-    # Method to parse .tabla file into an object of Bol
-    @classmethod
-    def parse(cls, file) -> Bol:
-        '''
-        Parses a .tabla file and returns a Bol object
-        '''
-        assert ".tabla" in file, "Please pass a valid .tabla file"
-        with open(file, 'r') as composition:
-            data = json.load(composition)
-            data = SimpleNamespace(**data)
-        try:
-            compositionType = CompositionType.registeredTypes[data.type]
-            taal = Taal.registeredTaals[data.taal]
-            # Detailed parsing logic for speed, jati, and so forth
-            # Uses pre-defined schemas, conditions, and associations to validate and parse
-        except Exception:
-            raise ValueError("Something is wrong with the configuration of your .tabla file")
+if khali_raw == "infer":
+    khali_preview = BolParser.toKhali(main_theme.get("bhari", ""))
+else:
+    khali_preview = main_theme.get("khali", "")
 
-                    </code></pre><br>
-                </div>
-  
+print("Khali preview:")
+print(khali_preview)`,
+            generateLocal: `from Tabalchi import CompositionGenerator
 
-            <!-- Further classes would follow in a similar format below, with appropriate titles and code sections -->
-        </div>
+result = CompositionGenerator.generate(
+    type="Kayda",
+    taal="Ektaal",
+    speedClass="Madhya",
+    jati="Chatusra",
+    school="Lucknow",
+    useLocal=True,
+    localModel="llama3.1:8b",
+    localEndpoint="http://localhost:11434/api/generate",
+)
 
-        <!-- JavaScript for interactivity, if required -->
-        <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-        <script>
-            new Vue({
-                el: '#app',
-                data: {
-                    // Interactive data
-                },
-                methods: {
-                    // Methods for interaction
+print(result)`
+        };
+
+        const KNOWN_BOLS = [
+            "dha", "dhin", "dhet", "dhere", "dhete", "kre", "kran",
+            "ge", "ga", "ghet", "gat", "ke", "ki", "ka", "kat", "ghen",
+            "na", "ta", "tin", "thun", "te", "ti", "tit", "tet", "ne", "re", "ra", "di",
+            "tere", "tete", "s",
+            "terekite", "gadigene", "nagetete", "kitetaka", "dheredhere", "teretere"
+        ];
+
+        const KNOWN_BOL_SET = new Set(KNOWN_BOLS);
+        const REQUIRED_TOP_KEYS = ["type", "name", "components", "taal", "speed", "jati", "playingStyle", "display"];
+        const ALLOWED_TYPES = ["Kayda", "Rela", "Gat", "Tukda", "Paran", "Tihai", "Chakradar"];
+        const ALLOWED_JATIS = ["Chatusra", "Tisra", "Khanda", "Misra", "Mishra", "Sankeerna"];
+        const ALLOWED_DISPLAYS = ["Bhatkande", "Paluskar"];
+        const JATI_TO_COUNT = {
+            Chatusra: 4,
+            Tisra: 3,
+            Khanda: 5,
+            Misra: 7,
+            Mishra: 7,
+            Sankeerna: 9
+        };
+
+        const BOL_AUDIO_MAP = {
+            ge: "Ge.m4a",
+            ga: "Ge.m4a",
+            ghet: "Ge.m4a",
+            gat: "Ge.m4a",
+            ke: "Ke.m4a",
+            ki: "Ke.m4a",
+            ka: "Ke.m4a",
+            kat: "Di.m4a",
+            ghen: "Ghen.m4a",
+            na: "Na.m4a",
+            ta: "Ta.m4a",
+            tin: "Tin.m4a",
+            thun: "Thun.m4a",
+            te: "Te.m4a",
+            ti: "Te.m4a",
+            tit: "Te.m4a",
+            tet: "Te.m4a",
+            ne: "Ne.m4a",
+            re: "Ne.m4a",
+            ra: "Ne.m4a",
+            di: "Di.m4a",
+            tere: "Tere.m4a",
+            tete: "Tete.m4a",
+            s: "S.m4a",
+            dha: "Dha.m4a",
+            dhin: "Dhin.m4a",
+            dhet: "Dhet.m4a",
+            dhe: "Dhet.m4a",
+            dhere: "Dhere.m4a",
+            dhete: "Dhete.m4a",
+            kre: "Kre.m4a",
+            kran: "Kran.m4a",
+            gran: "Dhin.m4a",
+            terekite: "Terekite.m4a",
+            gadigene: "Gadigene.m4a",
+            nagetete: "Nagetete.m4a",
+            kitetaka: "Kitetaka.m4a",
+            dheredhere: "Dheredhere.m4a",
+            teretere: "Teretere.m4a"
+        };
+
+        const BHARI_TO_KHALI_MAP = {
+            dha: "ta",
+            ge: "ke",
+            ga: "ke",
+            ghet: "ke",
+            gat: "ke",
+            dhin: "tin",
+            dhete: "tete",
+            dheredhere: "teretere",
+            gran: "kran"
+        };
+
+        const editor = document.getElementById("editor");
+        const highlightView = document.getElementById("highlightView");
+        const diagnosticList = document.getElementById("diagnosticList");
+        const statusLine = document.getElementById("statusLine");
+        const summaryPill = document.getElementById("summaryPill");
+        const playbackTrack = document.getElementById("playbackTrack");
+        const playbackMeta = document.getElementById("playbackMeta");
+        const playbackHint = document.getElementById("playbackHint");
+        const btnPlayPause = document.getElementById("btnPlayPause");
+        const btnStop = document.getElementById("btnStop");
+        const btnMute = document.getElementById("btnMute");
+        const playbackProgress = document.getElementById("playbackProgress");
+        const playbackTime = document.getElementById("playbackTime");
+        const playbackVolume = document.getElementById("playbackVolume");
+        const btnExportAudio = document.getElementById("btnExportAudio");
+
+        let latestDiagnostics = [];
+        let analyzeTimer = null;
+        let playbackPlan = null;
+        let preparePlaybackPromise = null;
+        let backendRefreshTimer = null;
+        let isScrubbing = false;
+        let currentActiveTokenIndex = -1;
+        let backendPlanRequestId = 0;
+
+        let pyodideInstance = null;
+        let pyBackendReady = false;
+        let pyBackendInitStarted = false;
+        let pyBackendError = null;
+
+        const playbackState = {
+            isPlaying: false,
+            prepared: null
+        };
+
+        const audioBufferCache = new Map();
+        let decodeAudioContext = null;
+        const playbackAudio = new Audio();
+        playbackAudio.preload = "auto";
+        playbackAudio.volume = Number(playbackVolume.value);
+        if ("preservesPitch" in playbackAudio) {
+            playbackAudio.preservesPitch = true;
+        }
+        if ("mozPreservesPitch" in playbackAudio) {
+            playbackAudio.mozPreservesPitch = true;
+        }
+        if ("webkitPreservesPitch" in playbackAudio) {
+            playbackAudio.webkitPreservesPitch = true;
+        }
+
+        function escapeHtml(value) {
+            return value
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;");
+        }
+
+        async function copyTextToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+
+            const temp = document.createElement("textarea");
+            temp.value = text;
+            temp.setAttribute("readonly", "");
+            temp.style.position = "absolute";
+            temp.style.left = "-9999px";
+            document.body.append(temp);
+            temp.select();
+            document.execCommand("copy");
+            temp.remove();
+        }
+
+        function initializePythonSnippets() {
+            const snippetTargets = {
+                parsePlay: document.getElementById("snippet-parse-play"),
+                khaliPreview: document.getElementById("snippet-khali-preview"),
+                generateLocal: document.getElementById("snippet-generate-local")
+            };
+
+            for (const [key, node] of Object.entries(snippetTargets)) {
+                if (node && PYTHON_SNIPPETS[key]) {
+                    node.textContent = PYTHON_SNIPPETS[key];
                 }
+            }
+
+            const tabs = document.querySelectorAll(".snippet-tab");
+            for (const tab of tabs) {
+                tab.addEventListener("click", () => {
+                    document.querySelectorAll(".snippet-tab").forEach(t => t.classList.remove("active"));
+                    document.querySelectorAll(".snippet-card").forEach(c => c.classList.remove("active"));
+                    
+                    tab.classList.add("active");
+                    const targetId = "card-" + tab.dataset.target;
+                    const card = document.getElementById(targetId);
+                    if (card) card.classList.add("active");
+                });
+            }
+
+            const buttons = document.querySelectorAll(".copy-snippet");
+            for (const button of buttons) {
+                button.addEventListener("click", async () => {
+                    const snippetKey = button.dataset.snippet;
+                    const snippetText = PYTHON_SNIPPETS[snippetKey];
+                    if (!snippetText) return;
+
+                    const originalText = button.textContent;
+                    try {
+                        await copyTextToClipboard(snippetText);
+                        button.textContent = "Copied";
+                        statusLine.textContent = "Python snippet copied to clipboard.";
+                    } catch {
+                        button.textContent = "Failed";
+                        statusLine.textContent = "Could not copy snippet. Select and copy manually.";
+                    } finally {
+                        window.setTimeout(() => {
+                            button.textContent = originalText;
+                        }, 1100);
+                    }
+                });
+            }
+        }
+
+        function levenshtein(a, b) {
+            const rows = a.length + 1;
+            const cols = b.length + 1;
+            const dp = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+            for (let i = 0; i < rows; i += 1) dp[i][0] = i;
+            for (let j = 0; j < cols; j += 1) dp[0][j] = j;
+
+            for (let i = 1; i < rows; i += 1) {
+                for (let j = 1; j < cols; j += 1) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(
+                        dp[i - 1][j] + 1,
+                        dp[i][j - 1] + 1,
+                        dp[i - 1][j - 1] + cost
+                    );
+                }
+            }
+            return dp[a.length][b.length];
+        }
+
+        function findBestSuggestion(token) {
+            let best = null;
+            let bestDistance = Number.POSITIVE_INFINITY;
+
+            for (const candidate of KNOWN_BOLS) {
+                const distance = levenshtein(token, candidate);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+
+            const maxDistance = Math.max(2, Math.floor(token.length * 0.34));
+            return bestDistance <= maxDistance ? best : null;
+        }
+
+        function preserveCase(sourceToken, replacement) {
+            if (sourceToken === sourceToken.toUpperCase()) return replacement.toUpperCase();
+            if (sourceToken[0] === sourceToken[0].toUpperCase()) {
+                return replacement[0].toUpperCase() + replacement.slice(1);
+            }
+            return replacement;
+        }
+
+        function indexToLineCol(text, index) {
+            const safeIndex = Math.max(0, Math.min(index, text.length));
+            const prefix = text.slice(0, safeIndex);
+            const lines = prefix.split("\n");
+            return { line: lines.length, col: lines[lines.length - 1].length + 1 };
+        }
+
+        function findStringValueRangeForKey(source, key, state) {
+            const keyPattern = new RegExp(`"${key}"\\s*:\\s*"`, "g");
+            keyPattern.lastIndex = state[key] || 0;
+            const match = keyPattern.exec(source);
+            if (!match) return null;
+
+            let start = match.index + match[0].length;
+            let end = start;
+            let escaped = false;
+
+            while (end < source.length) {
+                const ch = source[end];
+                if (!escaped && ch === "\\") {
+                    escaped = true;
+                } else if (!escaped && ch === '"') {
+                    break;
+                } else {
+                    escaped = false;
+                }
+                end += 1;
+            }
+
+            state[key] = end + 1;
+            return { start, end };
+        }
+
+        function findNumericValueRangeForKey(source, key) {
+            const pattern = new RegExp(`"${key}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)`);
+            const match = source.match(pattern);
+            if (!match || match.index === undefined) return null;
+            const numberStart = match.index + match[0].lastIndexOf(match[1]);
+            return { start: numberStart, end: numberStart + match[1].length };
+        }
+
+        function getJatiSyllableCount(value) {
+            if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+                return value;
+            }
+            if (typeof value === "string") {
+                if (JATI_TO_COUNT[value]) return JATI_TO_COUNT[value];
+                const numeric = Number(value);
+                if (Number.isFinite(numeric) && numeric > 0) return numeric;
+            }
+            return 4;
+        }
+
+        function inferKhaliFromBhari(text) {
+            if (typeof text !== "string") return "";
+
+            return text.replace(/[A-Za-z]+(?:-[A-Za-z]+)*/g, (token) => {
+                const parts = token.split("-");
+                const replaced = parts.map((part) => {
+                    const lowered = part.toLowerCase();
+                    return BHARI_TO_KHALI_MAP[lowered] || lowered;
+                });
+                const joined = replaced.join("-");
+                if (token.toUpperCase() === token) return joined.toUpperCase();
+                if (token[0] && token[0] === token[0].toUpperCase()) {
+                    return joined[0].toUpperCase() + joined.slice(1);
+                }
+                return joined;
             });
-        </script>
-    </section>
+        }
+
+        function getPhraseSections(components) {
+            const sections = [];
+
+            function pushPhraseIfPresent(value) {
+                if (typeof value !== "string") return;
+                const trimmed = value.trim();
+                if (trimmed.length === 0) return;
+                if (trimmed.toLowerCase() === "infer") return;
+                sections.push(trimmed);
+            }
+
+            if (components.mainTheme && typeof components.mainTheme === "object") {
+                pushPhraseIfPresent(components.mainTheme.bhari);
+                if (typeof components.mainTheme.khali === "string" && components.mainTheme.khali.trim().toLowerCase() === "infer") {
+                    pushPhraseIfPresent(inferKhaliFromBhari(components.mainTheme.bhari));
+                } else {
+                    pushPhraseIfPresent(components.mainTheme.khali);
+                }
+            }
+
+            if (Array.isArray(components.paltas)) {
+                for (const palta of components.paltas) {
+                    if (!palta || typeof palta !== "object") continue;
+                    pushPhraseIfPresent(palta.bhari);
+                    if (typeof palta.khali === "string" && palta.khali.trim().toLowerCase() === "infer") {
+                        pushPhraseIfPresent(inferKhaliFromBhari(palta.bhari));
+                    } else {
+                        pushPhraseIfPresent(palta.khali);
+                    }
+                }
+            }
+
+            pushPhraseIfPresent(components.tihai);
+
+            if (sections.length === 0 && typeof components.content === "string") {
+                pushPhraseIfPresent(components.content);
+            }
+
+            return sections;
+        }
+
+        function tokenizeBeat(beatText) {
+            if (typeof beatText !== "string") return [];
+            const matches = beatText.match(/[A-Za-z]+/g);
+            if (!matches) return [];
+            return matches.filter((token) => token.trim().length > 0);
+        }
+
+        function buildPlaybackPlan(source) {
+            const parsed = JSON.parse(source);
+            if (!parsed.components || typeof parsed.components !== "object") {
+                throw new Error("Cannot build playback plan: components is missing.");
+            }
+
+            const phraseSections = getPhraseSections(parsed.components);
+            const timeline = [];
+            let tokenCounter = 0;
+
+            for (const section of phraseSections) {
+                const beats = section.split("|");
+                for (const beatText of beats) {
+                    const tokens = tokenizeBeat(beatText);
+                    for (const tokenText of tokens) {
+                        const normalized = tokenText.toLowerCase();
+                        if (normalized === "infer") continue;
+
+                        timeline.push({
+                            kind: "token",
+                            tokenIndex: tokenCounter,
+                            rawText: tokenText,
+                            normalized,
+                            fileName: BOL_AUDIO_MAP[normalized] || null
+                        });
+                        tokenCounter += 1;
+                    }
+                    timeline.push({ kind: "divider" });
+                }
+            }
+
+            while (timeline.length > 0 && timeline[timeline.length - 1].kind === "divider") {
+                timeline.pop();
+            }
+
+            const tokens = timeline.filter((item) => item.kind === "token");
+            if (tokens.length === 0) {
+                throw new Error("No playable bols found in components.");
+            }
+
+            const missingAudio = Array.from(new Set(tokens.filter((item) => !item.fileName).map((item) => item.normalized)));
+            const speed = typeof parsed.speed === "number" && Number.isFinite(parsed.speed) && parsed.speed > 0 ? parsed.speed : 60;
+            const jatiCount = getJatiSyllableCount(parsed.jati);
+            const rawRate = (speed * jatiCount) / 240;
+            const playbackRate = Math.max(0.5, Math.min(3, rawRate));
+
+            return {
+                name: typeof parsed.name === "string" ? parsed.name : "composition",
+                speed,
+                jatiCount,
+                rawRate,
+                playbackRate,
+                timeline,
+                tokens,
+                missingAudio,
+                playableCount: tokens.filter((item) => !!item.fileName).length
+            };
+        }
+
+        function renderPlaybackTrack(plan, activeTokenIndex = -1) {
+            playbackTrack.innerHTML = "";
+
+            if (!plan || plan.timeline.length === 0) {
+                playbackTrack.innerHTML = '<span class="empty">Enter a valid .tabla JSON to build a playable sequence.</span>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            for (const item of plan.timeline) {
+                if (item.kind === "divider") {
+                    const separator = document.createElement("span");
+                    separator.className = "play-sep";
+                    separator.textContent = "|";
+                    fragment.append(separator);
+                    continue;
+                }
+
+                const tokenNode = document.createElement("span");
+                tokenNode.className = "play-token";
+                tokenNode.dataset.tokenIndex = String(item.tokenIndex);
+                if (!item.fileName) tokenNode.classList.add("is-missing");
+                if (item.tokenIndex === activeTokenIndex) tokenNode.classList.add("is-active");
+                tokenNode.textContent = item.rawText;
+                fragment.append(tokenNode);
+            }
+
+            playbackTrack.append(fragment);
+        }
+
+        function setActivePlaybackToken(index) {
+            if (index === currentActiveTokenIndex) return;
+            currentActiveTokenIndex = index;
+
+            const active = playbackTrack.querySelector(".play-token.is-active");
+            if (active) active.classList.remove("is-active");
+
+            if (index < 0) return;
+            const next = playbackTrack.querySelector(`[data-token-index="${index}"]`);
+            if (!next) return;
+            next.classList.add("is-active");
+            next.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+        }
+
+        function formatClock(seconds) {
+            const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
+            const whole = Math.floor(safe);
+            const mins = Math.floor(whole / 60);
+            const secs = String(whole % 60).padStart(2, "0");
+            return `${mins}:${secs}`;
+        }
+
+        function setPlayPauseVisual(isPlaying) {
+            btnPlayPause.classList.toggle("is-playing", !!isPlaying);
+            btnPlayPause.setAttribute("aria-label", isPlaying ? "Pause" : "Play");
+            btnPlayPause.title = isPlaying ? "Pause" : "Play";
+        }
+
+        function setMuteVisual(isMuted) {
+            btnMute.classList.toggle("is-muted", !!isMuted);
+            btnMute.setAttribute("aria-label", isMuted ? "Unmute" : "Mute");
+            btnMute.title = isMuted ? "Unmute" : "Mute";
+        }
+
+        function getPlaybackPlanKey(plan) {
+            return JSON.stringify({
+                rate: plan.playbackRate,
+                tokens: plan.tokens.map((item) => `${item.tokenIndex}:${item.fileName || "?"}`)
+            });
+        }
+
+        function clearPreparedPlayback() {
+            if (playbackState.prepared && playbackState.prepared.audioUrl) {
+                URL.revokeObjectURL(playbackState.prepared.audioUrl);
+            }
+            playbackState.prepared = null;
+            playbackAudio.removeAttribute("src");
+            playbackAudio.load();
+            playbackProgress.value = "0";
+            playbackTime.textContent = "0:00 / 0:00";
+            setActivePlaybackToken(-1);
+        }
+
+        function getPreparedDuration() {
+            if (playbackState.prepared && Number.isFinite(playbackState.prepared.duration)) {
+                return playbackState.prepared.duration;
+            }
+            return 0;
+        }
+
+        function updatePlaybackTimeUi(currentTime, duration) {
+            const current = Math.max(0, Number.isFinite(currentTime) ? currentTime : 0);
+            const total = Math.max(0, Number.isFinite(duration) ? duration : 0);
+            playbackTime.textContent = `${formatClock(current)} / ${formatClock(total)}`;
+            const ratio = total > 0 ? Math.min(1, Math.max(0, current / total)) : 0;
+            if (!isScrubbing) {
+                playbackProgress.value = String(Math.round(ratio * 1000));
+            }
+        }
+
+        function setPlaybackControls() {
+            const hasError = latestDiagnostics.some((diag) => diag.severity === "error");
+            const canUsePlayback = !!playbackPlan && playbackPlan.playableCount > 0 && !hasError;
+            const hasPosition = playbackAudio.currentTime > 0.01;
+
+            btnPlayPause.disabled = !canUsePlayback || !!preparePlaybackPromise;
+            btnStop.disabled = !canUsePlayback || (!playbackState.isPlaying && !hasPosition);
+            playbackProgress.disabled = !canUsePlayback;
+            btnMute.disabled = !canUsePlayback;
+            playbackVolume.disabled = !canUsePlayback;
+            btnExportAudio.disabled = !canUsePlayback || playbackState.isPlaying || !!preparePlaybackPromise;
+
+            setPlayPauseVisual(playbackState.isPlaying);
+            setMuteVisual(playbackAudio.muted || playbackAudio.volume <= 0.001);
+        }
+
+        function findTokenAtTime(seconds) {
+            if (!playbackState.prepared || playbackState.prepared.tokenTiming.length === 0) return -1;
+            const t = Math.max(0, seconds);
+            const timing = playbackState.prepared.tokenTiming;
+            for (let i = 0; i < timing.length; i += 1) {
+                const segment = timing[i];
+                if (t >= segment.start && t < segment.end) {
+                    return segment.tokenIndex;
+                }
+            }
+
+            if (t >= timing[timing.length - 1].end) {
+                return timing[timing.length - 1].tokenIndex;
+            }
+
+            return -1;
+        }
+
+        function updateActiveTokenForTime(seconds) {
+            setActivePlaybackToken(findTokenAtTime(seconds));
+        }
+
+        async function buildPlaybackPlanFromPyBackend(source) {
+            if (!pyBackendReady || !pyodideInstance) {
+                throw new Error("Python backend is not ready.");
+            }
+
+            pyodideInstance.globals.set("source_json_payload", source);
+            try {
+                const serializedPlan = await pyodideInstance.runPythonAsync(
+                    "import json, web_backend\njson.dumps(web_backend.build_playback_plan(source_json_payload))"
+                );
+                return JSON.parse(serializedPlan);
+            } finally {
+                pyodideInstance.globals.delete("source_json_payload");
+            }
+        }
+
+        function applyPlaybackPlanToUi(plan, previousKey, backendLabel) {
+            playbackPlan = plan;
+            renderPlaybackTrack(playbackPlan, -1);
+
+            playbackMeta.textContent = `Tokens: ${playbackPlan.tokens.length} | Playable: ${playbackPlan.playableCount} | Speed: ${playbackPlan.speed} BPM | Jati: ${playbackPlan.jatiCount}`;
+
+            let hintText = "";
+            if (playbackPlan.missingAudio.length > 0) {
+                hintText = `Missing audio for: ${playbackPlan.missingAudio.join(", ")}`;
+            } else if (Math.abs(playbackPlan.rawRate - playbackPlan.playbackRate) > 1e-9) {
+                hintText = `Playback rate clamped to ${playbackPlan.playbackRate.toFixed(2)}x for browser stability.`;
+            } else {
+                hintText = `Playback rate: ${playbackPlan.playbackRate.toFixed(2)}x`;
+            }
+
+            if (backendLabel) {
+                hintText = `${hintText} | backend: ${backendLabel}`;
+            }
+            playbackHint.textContent = hintText;
+
+            const nextKey = getPlaybackPlanKey(playbackPlan);
+            if (previousKey !== nextKey) {
+                if (playbackState.isPlaying) playbackAudio.pause();
+                clearPreparedPlayback();
+            }
+        }
+
+        async function refreshPlaybackPlanFromBackend(source) {
+            if (!pyBackendReady || !pyodideInstance) return false;
+
+            const requestId = ++backendPlanRequestId;
+            try {
+                const backendPlan = await buildPlaybackPlanFromPyBackend(source);
+                if (requestId !== backendPlanRequestId) return false;
+
+                const previousKey = playbackPlan ? getPlaybackPlanKey(playbackPlan) : null;
+                applyPlaybackPlanToUi(backendPlan, previousKey, "python-pyodide");
+                setPlaybackControls();
+                return true;
+            } catch (error) {
+                if (requestId !== backendPlanRequestId) return false;
+                pyBackendError = error;
+                return false;
+            }
+        }
+
+        function scheduleBackendPlaybackPlanRefresh(source) {
+            if (!pyBackendReady) {
+                if (!pyBackendInitStarted) {
+                    initPyBackend();
+                }
+                return;
+            }
+
+            if (backendRefreshTimer) {
+                window.clearTimeout(backendRefreshTimer);
+            }
+            backendRefreshTimer = window.setTimeout(() => {
+                refreshPlaybackPlanFromBackend(source);
+            }, 180);
+        }
+
+        async function initPyBackend() {
+            if (pyBackendInitStarted) return;
+            pyBackendInitStarted = true;
+
+            try {
+                if (typeof loadPyodide !== "function") {
+                    throw new Error("Pyodide runtime unavailable.");
+                }
+
+                playbackHint.textContent = "Initializing Python backend...";
+                pyodideInstance = await loadPyodide({
+                    indexURL: "https://cdn.jsdelivr.net/pyodide/v0.27.2/full/"
+                });
+
+                const backendResponse = await fetch("Tabalchi/web_backend.py", { cache: "no-store" });
+                if (!backendResponse.ok) {
+                    throw new Error("Could not load Python backend module.");
+                }
+
+                const backendSource = await backendResponse.text();
+                pyodideInstance.FS.writeFile("/web_backend.py", backendSource);
+                await pyodideInstance.runPythonAsync("import sys\nsys.path.insert(0, '/')\nimport web_backend");
+
+                pyBackendReady = true;
+                pyBackendError = null;
+                await refreshPlaybackPlanFromBackend(editor.value);
+            } catch (error) {
+                pyBackendReady = false;
+                pyBackendError = error;
+                if (!playbackHint.textContent.includes("backend:")) {
+                    playbackHint.textContent = `backend: js-fallback (${error.message})`;
+                }
+            } finally {
+                if (!pyBackendReady) {
+                    pyBackendInitStarted = false;
+                }
+                setPlaybackControls();
+            }
+        }
+
+        function updatePlaybackPreview(source) {
+            const previousKey = playbackPlan ? getPlaybackPlanKey(playbackPlan) : null;
+
+            try {
+                const localPlan = buildPlaybackPlan(source);
+                applyPlaybackPlanToUi(localPlan, previousKey, pyBackendReady ? "python-pyodide (syncing)" : "js-fallback");
+            } catch {
+                if (playbackState.isPlaying) playbackAudio.pause();
+                playbackPlan = null;
+                playbackMeta.textContent = "Playback sequence not ready.";
+                playbackHint.textContent = "";
+                renderPlaybackTrack(null, -1);
+                clearPreparedPlayback();
+            }
+
+            setPlaybackControls();
+            scheduleBackendPlaybackPlanRefresh(source);
+        }
+
+        function getAudioUrl(fileName) {
+            return new URL(`recordings/${fileName}`, window.location.href).toString();
+        }
+
+        function getDecodeContext() {
+            if (!decodeAudioContext) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) {
+                    throw new Error("This browser does not support Web Audio export.");
+                }
+                decodeAudioContext = new AudioContextClass();
+            }
+            return decodeAudioContext;
+        }
+
+        async function getCachedAudioBuffer(fileName) {
+            if (audioBufferCache.has(fileName)) {
+                return audioBufferCache.get(fileName);
+            }
+
+            const response = await fetch(getAudioUrl(fileName));
+            if (!response.ok) {
+                throw new Error(`Could not fetch ${fileName}.`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = await getDecodeContext().decodeAudioData(arrayBuffer.slice(0));
+            audioBufferCache.set(fileName, buffer);
+            return buffer;
+        }
+
+        function audioBufferToWavBlob(audioBuffer) {
+            const numberOfChannels = audioBuffer.numberOfChannels;
+            const sampleRate = audioBuffer.sampleRate;
+            const bitDepth = 16;
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numberOfChannels * bytesPerSample;
+            const dataLength = audioBuffer.length * blockAlign;
+            const buffer = new ArrayBuffer(44 + dataLength);
+            const view = new DataView(buffer);
+
+            function writeString(offset, text) {
+                for (let i = 0; i < text.length; i += 1) {
+                    view.setUint8(offset + i, text.charCodeAt(i));
+                }
+            }
+
+            writeString(0, "RIFF");
+            view.setUint32(4, 36 + dataLength, true);
+            writeString(8, "WAVE");
+            writeString(12, "fmt ");
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numberOfChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(36, "data");
+            view.setUint32(40, dataLength, true);
+
+            let offset = 44;
+            for (let i = 0; i < audioBuffer.length; i += 1) {
+                for (let channel = 0; channel < numberOfChannels; channel += 1) {
+                    const sample = audioBuffer.getChannelData(channel)[i];
+                    const clamped = Math.max(-1, Math.min(1, sample));
+                    view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+                    offset += 2;
+                }
+            }
+
+            return new Blob([buffer], { type: "audio/wav" });
+        }
+
+        async function renderPlaybackMix(plan) {
+            const tokensToRender = plan.tokens.filter((item) => !!item.fileName);
+            if (tokensToRender.length === 0) {
+                throw new Error("No audio-mapped bols available to play.");
+            }
+
+            const renderedClips = [];
+            const tokenTiming = [];
+            let cursor = 0;
+
+            for (const item of tokensToRender) {
+                const buffer = await getCachedAudioBuffer(item.fileName);
+                const duration = buffer.duration;
+                renderedClips.push({ buffer, start: cursor });
+                tokenTiming.push({ tokenIndex: item.tokenIndex, start: cursor, end: cursor + duration });
+                cursor += duration;
+            }
+
+            const totalDuration = Math.max(0.01, cursor);
+            const channelCount = Math.max(1, ...renderedClips.map((entry) => entry.buffer.numberOfChannels));
+            const sampleRate = 44100;
+            const totalFrames = Math.max(1, Math.ceil(totalDuration * sampleRate));
+            const OfflineAudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+            if (!OfflineAudioContextClass) {
+                throw new Error("This browser does not support offline audio rendering.");
+            }
+
+            const offlineContext = new OfflineAudioContextClass(channelCount, totalFrames, sampleRate);
+            for (const entry of renderedClips) {
+                const source = offlineContext.createBufferSource();
+                source.buffer = entry.buffer;
+                source.playbackRate.value = 1;
+                source.connect(offlineContext.destination);
+                source.start(entry.start);
+            }
+
+            const rendered = await offlineContext.startRendering();
+            return {
+                key: getPlaybackPlanKey(plan),
+                name: plan.name,
+                duration: rendered.duration,
+                tokenTiming,
+                audioBlob: audioBufferToWavBlob(rendered)
+            };
+        }
+
+        async function ensurePreparedPlayback() {
+            if (!playbackPlan || playbackPlan.playableCount === 0) {
+                throw new Error("No playable bols available.");
+            }
+
+            const key = getPlaybackPlanKey(playbackPlan);
+            if (playbackState.prepared && playbackState.prepared.key === key) {
+                return playbackState.prepared;
+            }
+
+            if (preparePlaybackPromise) {
+                return preparePlaybackPromise;
+            }
+
+            statusLine.textContent = "Preparing playback timeline...";
+            preparePlaybackPromise = (async () => {
+                const prepared = await renderPlaybackMix(playbackPlan);
+
+                if (playbackState.prepared && playbackState.prepared.audioUrl) {
+                    URL.revokeObjectURL(playbackState.prepared.audioUrl);
+                }
+
+                prepared.audioUrl = URL.createObjectURL(prepared.audioBlob);
+                playbackState.prepared = prepared;
+                playbackAudio.src = prepared.audioUrl;
+                playbackAudio.playbackRate = playbackPlan.playbackRate;
+                playbackAudio.currentTime = 0;
+                updatePlaybackTimeUi(0, prepared.duration);
+                setActivePlaybackToken(-1);
+                return prepared;
+            })();
+
+            try {
+                return await preparePlaybackPromise;
+            } finally {
+                preparePlaybackPromise = null;
+                setPlaybackControls();
+            }
+        }
+
+        async function togglePlayPause() {
+            if (latestDiagnostics.some((diag) => diag.severity === "error")) {
+                statusLine.textContent = "Fix JSON errors before playback.";
+                return;
+            }
+
+            updatePlaybackPreview(editor.value);
+            if (pyBackendReady) {
+                await refreshPlaybackPlanFromBackend(editor.value);
+            }
+
+            if (!playbackPlan || playbackPlan.playableCount === 0) {
+                statusLine.textContent = "No playable bols available in the current composition.";
+                return;
+            }
+
+            if (playbackState.isPlaying) {
+                playbackAudio.pause();
+                statusLine.textContent = "Playback paused.";
+                return;
+            }
+
+            try {
+                const prepared = await ensurePreparedPlayback();
+                if (playbackAudio.currentTime >= prepared.duration - 0.02) {
+                    playbackAudio.currentTime = 0;
+                }
+                await playbackAudio.play();
+                statusLine.textContent = "Playing composition...";
+            } catch (error) {
+                statusLine.textContent = `Playback failed: ${error.message}`;
+            }
+        }
+
+        function stopBolPlayback() {
+            playbackAudio.pause();
+            playbackAudio.currentTime = 0;
+            playbackState.isPlaying = false;
+            updatePlaybackTimeUi(0, getPreparedDuration());
+            setActivePlaybackToken(-1);
+            statusLine.textContent = "Playback stopped.";
+            setPlaybackControls();
+        }
+
+        async function exportPlaybackAudio() {
+            if (playbackState.isPlaying) {
+                statusLine.textContent = "Stop playback before exporting audio.";
+                return;
+            }
+
+            if (latestDiagnostics.some((diag) => diag.severity === "error")) {
+                statusLine.textContent = "Fix JSON errors before exporting audio.";
+                return;
+            }
+
+            updatePlaybackPreview(editor.value);
+            if (pyBackendReady) {
+                await refreshPlaybackPlanFromBackend(editor.value);
+            }
+
+            if (!playbackPlan || playbackPlan.playableCount === 0) {
+                statusLine.textContent = "No playable bols available to export.";
+                return;
+            }
+
+            try {
+                const prepared = await ensurePreparedPlayback();
+                const downloadUrl = URL.createObjectURL(prepared.audioBlob);
+                const anchor = document.createElement("a");
+                const safeName = prepared.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "composition";
+                anchor.href = downloadUrl;
+                anchor.download = `${safeName}.wav`;
+                anchor.click();
+                window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+                statusLine.textContent = "Audio export complete.";
+            } catch (error) {
+                statusLine.textContent = `Audio export failed: ${error.message}`;
+            }
+        }
+
+        function analyzeText(source) {
+            const diagnostics = [];
+            let parsed;
+
+            try {
+                parsed = JSON.parse(source);
+            } catch (error) {
+                const raw = String(error.message || error);
+                const positionMatch = raw.match(/position\s(\d+)/i);
+                const index = positionMatch ? Number(positionMatch[1]) : 0;
+                diagnostics.push({
+                    severity: "error",
+                    message: `Invalid JSON: ${raw}`,
+                    range: { start: index, end: Math.min(index + 1, source.length) }
+                });
+                return diagnostics;
+            }
+
+            const topLevelKeys = Object.keys(parsed);
+            for (const key of REQUIRED_TOP_KEYS) {
+                if (!(key in parsed)) {
+                    diagnostics.push({
+                        severity: "error",
+                        message: `Missing top-level key: ${key}`,
+                        range: null
+                    });
+                }
+            }
+
+            for (const key of topLevelKeys) {
+                if (!REQUIRED_TOP_KEYS.includes(key)) {
+                    diagnostics.push({
+                        severity: "warning",
+                        message: `Unknown top-level key: ${key}`,
+                        range: null
+                    });
+                }
+            }
+
+            const keyRangeState = {};
+
+            function validateEnum(key, allowedValues, label) {
+                if (typeof parsed[key] !== "string") return;
+                if (allowedValues.includes(parsed[key])) return;
+
+                const suggestion = findBestSuggestion(parsed[key].toLowerCase());
+                const preferred = suggestion
+                    ? suggestion[0].toUpperCase() + suggestion.slice(1)
+                    : allowedValues[0];
+                const valueRange = findStringValueRangeForKey(source, key, keyRangeState);
+
+                diagnostics.push({
+                    severity: "warning",
+                    message: `Unexpected ${label}: ${parsed[key]}. Expected one of ${allowedValues.join(", ")}.`,
+                    range: valueRange,
+                    fix: valueRange
+                        ? {
+                            type: "replace-range",
+                            start: valueRange.start,
+                            end: valueRange.end,
+                            text: preferred
+                        }
+                        : null
+                });
+            }
+
+            validateEnum("display", ALLOWED_DISPLAYS, "display");
+            validateEnum("type", ALLOWED_TYPES, "composition type");
+            validateEnum("jati", ALLOWED_JATIS, "jati");
+
+            if ("speed" in parsed) {
+                if (typeof parsed.speed !== "number" || Number.isNaN(parsed.speed) || parsed.speed <= 0) {
+                    diagnostics.push({
+                        severity: "error",
+                        message: "Speed should be a positive number.",
+                        range: findNumericValueRangeForKey(source, "speed")
+                    });
+                }
+            }
+
+            const components = parsed.components;
+            if (!components || typeof components !== "object") {
+                diagnostics.push({
+                    severity: "error",
+                    message: "components must be an object.",
+                    range: null
+                });
+                return diagnostics;
+            }
+
+            const phraseFields = [];
+            if (components.mainTheme && typeof components.mainTheme === "object") {
+                if (typeof components.mainTheme.bhari === "string") {
+                    phraseFields.push({ label: "components.mainTheme.bhari", key: "bhari", text: components.mainTheme.bhari });
+                }
+                if (typeof components.mainTheme.khali === "string" && components.mainTheme.khali.toLowerCase() !== "infer") {
+                    phraseFields.push({ label: "components.mainTheme.khali", key: "khali", text: components.mainTheme.khali });
+                }
+            }
+
+            if (Array.isArray(components.paltas)) {
+                for (let i = 0; i < components.paltas.length; i += 1) {
+                    const item = components.paltas[i];
+                    if (!item || typeof item !== "object") continue;
+                    if (typeof item.bhari === "string") {
+                        phraseFields.push({ label: `components.paltas[${i}].bhari`, key: "bhari", text: item.bhari });
+                    }
+                    if (typeof item.khali === "string" && item.khali.toLowerCase() !== "infer") {
+                        phraseFields.push({ label: `components.paltas[${i}].khali`, key: "khali", text: item.khali });
+                    }
+                }
+            }
+
+            if (typeof components.tihai === "string") {
+                phraseFields.push({ label: "components.tihai", key: "tihai", text: components.tihai });
+            }
+
+            for (const field of phraseFields) {
+                const fieldRange = findStringValueRangeForKey(source, field.key, keyRangeState);
+                const beats = field.text.split("|").map((value) => value.trim());
+
+                if (beats.some((beat) => beat.length === 0)) {
+                    diagnostics.push({
+                        severity: "warning",
+                        message: `Empty beat in ${field.label}. Remove repeated | or add bols.`,
+                        range: fieldRange
+                    });
+                }
+
+                const wordRegex = /[A-Za-z]+/g;
+                let match;
+                while ((match = wordRegex.exec(field.text)) !== null) {
+                    const token = match[0];
+                    const normalized = token.toLowerCase();
+
+                    if (normalized === "infer") continue;
+                    if (KNOWN_BOL_SET.has(normalized)) continue;
+
+                    const suggestion = findBestSuggestion(normalized);
+                    const start = fieldRange ? fieldRange.start + match.index : null;
+                    const end = start !== null ? start + token.length : null;
+
+                    diagnostics.push({
+                        severity: "warning",
+                        message: suggestion
+                            ? `Unknown bol ${token} in ${field.label}. Did you mean ${suggestion}?`
+                            : `Unknown bol ${token} in ${field.label}.`,
+                        range: start !== null && end !== null ? { start, end } : null,
+                        fix: suggestion && start !== null
+                            ? {
+                                type: "replace-range",
+                                start,
+                                end,
+                                text: preserveCase(token, suggestion)
+                            }
+                            : null
+                    });
+                }
+            }
+
+            return diagnostics;
+        }
+
+        function renderHighlightedSource(source, diagnostics) {
+            const markers = diagnostics
+                .filter((diag) => diag.range && Number.isFinite(diag.range.start) && Number.isFinite(diag.range.end))
+                .map((diag) => ({
+                    start: Math.max(0, Math.min(diag.range.start, source.length)),
+                    end: Math.max(0, Math.min(diag.range.end, source.length)),
+                    severity: diag.severity,
+                    message: diag.message
+                }))
+                .filter((marker) => marker.end > marker.start)
+                .sort((a, b) => (a.start - b.start) || (b.end - a.end));
+
+            let html = "";
+            let cursor = 0;
+
+            for (const marker of markers) {
+                if (marker.start < cursor) continue;
+                html += escapeHtml(source.slice(cursor, marker.start));
+                const chunk = escapeHtml(source.slice(marker.start, marker.end));
+                html += `<span class="hl hl-${marker.severity}" title="${escapeHtml(marker.message)}">${chunk}</span>`;
+                cursor = marker.end;
+            }
+
+            html += escapeHtml(source.slice(cursor));
+            highlightView.innerHTML = html;
+        }
+
+        function applyFix(fix) {
+            if (!fix || fix.type !== "replace-range") return;
+            const text = editor.value;
+            editor.value = text.slice(0, fix.start) + fix.text + text.slice(fix.end);
+            runAnalysis();
+        }
+
+        function applyAllSafeFixes() {
+            const fixable = latestDiagnostics
+                .filter((diag) => diag.fix && diag.fix.type === "replace-range")
+                .map((diag) => diag.fix)
+                .sort((a, b) => b.start - a.start);
+
+            if (fixable.length === 0) return;
+
+            let text = editor.value;
+            let lastStart = Number.POSITIVE_INFINITY;
+            for (const fix of fixable) {
+                if (fix.end > lastStart) continue;
+                text = text.slice(0, fix.start) + fix.text + text.slice(fix.end);
+                lastStart = fix.start;
+            }
+
+            editor.value = text;
+            runAnalysis();
+        }
+
+        function renderDiagnostics(source, diagnostics) {
+            diagnosticList.innerHTML = "";
+
+            if (diagnostics.length === 0) {
+                diagnosticList.innerHTML = '<div class="empty">No issues found. This looks clean and ready to parse.</div>';
+                return;
+            }
+
+            for (let i = 0; i < diagnostics.length; i += 1) {
+                const diag = diagnostics[i];
+                const node = document.createElement("article");
+                node.className = "diag fade-in";
+
+                const meta = document.createElement("div");
+                meta.className = "diag-meta";
+
+                const level = document.createElement("span");
+                level.className = `severity-${diag.severity}`;
+                level.textContent = diag.severity;
+
+                const location = document.createElement("span");
+                if (diag.range) {
+                    const loc = indexToLineCol(source, diag.range.start);
+                    location.textContent = `line ${loc.line}, col ${loc.col}`;
+                } else {
+                    location.textContent = "general";
+                }
+
+                meta.append(level, location);
+
+                const text = document.createElement("p");
+                text.textContent = diag.message;
+
+                node.append(meta, text);
+
+                if (diag.fix) {
+                    const actions = document.createElement("div");
+                    actions.className = "diag-actions";
+                    const button = document.createElement("button");
+                    button.textContent = "Apply fix";
+                    button.addEventListener("click", () => applyFix(diag.fix));
+                    actions.append(button);
+                    node.append(actions);
+                }
+
+                diagnosticList.append(node);
+            }
+        }
+
+        function runAnalysis() {
+            const source = editor.value;
+            latestDiagnostics = analyzeText(source);
+            renderHighlightedSource(source, latestDiagnostics);
+            renderDiagnostics(source, latestDiagnostics);
+            updatePlaybackPreview(source);
+
+            const errors = latestDiagnostics.filter((diag) => diag.severity === "error").length;
+            const warnings = latestDiagnostics.filter((diag) => diag.severity === "warning").length;
+            const fixable = latestDiagnostics.filter((diag) => diag.fix).length;
+
+            statusLine.textContent = `${errors} errors, ${warnings} warnings, ${fixable} quick fixes available.`;
+            summaryPill.textContent = errors > 0
+                ? `${errors} errors to fix`
+                : warnings > 0
+                    ? `${warnings} suggestions available`
+                    : "Composition looks healthy";
+        }
+
+        function scheduleAnalysis() {
+            if (analyzeTimer) window.clearTimeout(analyzeTimer);
+            analyzeTimer = window.setTimeout(runAnalysis, 120);
+        }
+
+        document.getElementById("btnTemplate").addEventListener("click", () => {
+            editor.value = DEFAULT_TEMPLATE;
+            runAnalysis();
+        });
+
+        document.getElementById("btnFormat").addEventListener("click", () => {
+            try {
+                const pretty = JSON.stringify(JSON.parse(editor.value), null, 2);
+                editor.value = pretty;
+                runAnalysis();
+            } catch {
+                scheduleAnalysis();
+            }
+        });
+
+        document.getElementById("btnFixAll").addEventListener("click", applyAllSafeFixes);
+
+        btnPlayPause.addEventListener("click", () => {
+            togglePlayPause();
+        });
+
+        btnStop.addEventListener("click", () => {
+            stopBolPlayback();
+        });
+
+        btnMute.addEventListener("click", () => {
+            playbackAudio.muted = !playbackAudio.muted;
+            setMuteVisual(playbackAudio.muted || playbackAudio.volume <= 0.001);
+        });
+
+        playbackVolume.addEventListener("input", () => {
+            const nextVolume = Math.max(0, Math.min(1, Number(playbackVolume.value)));
+            playbackAudio.volume = nextVolume;
+            if (nextVolume > 0 && playbackAudio.muted) {
+                playbackAudio.muted = false;
+            }
+            setMuteVisual(playbackAudio.muted || nextVolume <= 0.001);
+        });
+
+        playbackProgress.addEventListener("input", () => {
+            isScrubbing = true;
+            const duration = getPreparedDuration();
+            if (duration <= 0) {
+                updatePlaybackTimeUi(0, 0);
+                return;
+            }
+            const previewTime = (Number(playbackProgress.value) / 1000) * duration;
+            updatePlaybackTimeUi(previewTime, duration);
+            updateActiveTokenForTime(previewTime);
+            playbackAudio.currentTime = previewTime;
+        });
+
+        playbackProgress.addEventListener("change", () => {
+            isScrubbing = false;
+        });
+
+        playbackAudio.addEventListener("play", () => {
+            playbackState.isPlaying = true;
+            setPlaybackControls();
+        });
+
+        playbackAudio.addEventListener("pause", () => {
+            playbackState.isPlaying = false;
+            setPlaybackControls();
+        });
+
+        playbackAudio.addEventListener("ended", () => {
+            playbackState.isPlaying = false;
+            const duration = getPreparedDuration();
+            updatePlaybackTimeUi(duration, duration);
+            setActivePlaybackToken(-1);
+            statusLine.textContent = "Playback completed.";
+            setPlaybackControls();
+        });
+
+        playbackAudio.addEventListener("timeupdate", () => {
+            const duration = getPreparedDuration();
+            const current = playbackAudio.currentTime;
+            updatePlaybackTimeUi(current, duration);
+            updateActiveTokenForTime(current);
+        });
+
+        btnExportAudio.addEventListener("click", () => {
+            exportPlaybackAudio();
+        });
+
+        document.getElementById("btnExport").addEventListener("click", () => {
+            const blob = new Blob([editor.value], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = "composition.tabla";
+            anchor.click();
+            URL.revokeObjectURL(url);
+        });
+
+        editor.addEventListener("input", () => {
+            if (playbackState.isPlaying) {
+                stopBolPlayback();
+            }
+            scheduleAnalysis();
+        });
+
+        initializePythonSnippets();
+        editor.value = DEFAULT_TEMPLATE;
+        runAnalysis();
+    </script>
 </body>
 </html>
-```

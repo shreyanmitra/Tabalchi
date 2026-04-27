@@ -1,26 +1,52 @@
 #(C) Shreyan Mitra
 
 #Imports
+from __future__ import annotations
+
 import json #For parsing .tabla files
 from jsonschema import validate #For checking .tabla files for validity
-from __future__ import annotations
 from abc import ABC, abstractmethod #For defining abstract classes
 from playsound import playsound #For playing sounds
 from pydub.playback import play as pydubplay #Also for playing sounds
 from pydub import AudioSegment #For merging and joining sounds
+from pydub.utils import which as pydubWhich
 import audio_effects as ae # For slowing down sounds
-import acoustid #For fingerprinting audio files
-import chromaprint #For decoding audio fingerprints
+import importlib
 from typing import* #For type hints
 from types import SimpleNamespace #For accessing dictionary field using dot notation
 import os #For moving files
 from pathlib import Path #Also for moving files
 import warnings #For warnings
-from transformers import pipeline # For composition generation
-import torch #For model inference
 import random #For generating random speed if only speed class is provided
+import re
 from collections import OrderedDict #For representing an ordered mapping of phrases to actual number of syllables taken for each phrase
+import urllib.request as urlrequest
+import urllib.error as urlerror
 import fsspec #For downloading recordings folder from Github
+
+try:
+    acoustid = importlib.import_module("acoustid") #For fingerprinting audio files
+except Exception:
+    acoustid = None
+
+try:
+    chromaprint = importlib.import_module("chromaprint") #For decoding audio fingerprints
+except Exception:
+    chromaprint = None
+
+try:
+    pipeline = importlib.import_module("transformers").pipeline # For composition generation
+except ModuleNotFoundError:
+    pipeline = None
+
+try:
+    torch = importlib.import_module("torch") #For model inference
+except Exception:
+    torch = None
+
+
+def hasPydubBackend() -> bool:
+    return (pydubWhich("ffmpeg") is not None or pydubWhich("avconv") is not None) and (pydubWhich("ffprobe") is not None or pydubWhich("avprobe") is not None)
 
 #A class representing an interval of beats
 class BeatRange():
@@ -58,7 +84,10 @@ class BeatRange():
             ranges(List[BeatRange]): A list of beat ranges
             totalBeats(int): The total number of beats in the sequence to check the ranges against
         '''
-        ranges = sorted(ranges, lambda range: range.begin)
+        if len(ranges) == 0:
+            return False
+
+        ranges = sorted(ranges, key=lambda beat_range: beat_range.begin)
         for i in range(1, len(ranges)):
             if ranges[i].begin != ranges[i-1].end:
                 return False
@@ -77,17 +106,12 @@ class BeatRange():
             end(int): The end beat of the desired sequence
         '''
         subsequence = []
-        for i in range(len(ranges)):
-            range = ranges[i]
-            if range.begin >= begin and range.end <= end:
-                subsequence.append(range)
-            elif range.begin >= begin and range.end > end:
-                subsequence.append(BeatRange(range.begin, end))
-            elif range.begin < begin and range.end <= end:
-                subsequence.append(BeatRange(begin, range.end))
-            else:
-                subsequence.append(BeatRange(begin, end))
-        return sorted(subsequence)
+        for beatRange in sorted(ranges, key=lambda interval: interval.begin):
+            overlapBegin = max(beatRange.begin, begin)
+            overlapEnd = min(beatRange.end, end)
+            if overlapBegin < overlapEnd:
+                subsequence.append(BeatRange(overlapBegin, overlapEnd))
+        return subsequence
 
 #A class representing a composition type. Ex. Kayda, Rela, etc.
 #For descriptions of the different types of tabla compositions, visit www.tablalegacy.com (not affiliated with this product or the author in any way)
@@ -104,7 +128,7 @@ class CompositionType():
         assembler(Callable[[SimpleNamespace], [list[str]]]): Gives instructions on how to put together the disjointed components of the composition
         register(bool): Whether to register the composition type (i.e. to save it for future use). By default, True
     '''
-    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol],[bool]], assembler:Callable[[SimpleNamespace], [list[str]]], register:bool = True):
+    def __init__(self, name:str, schema:dict, validityCheck:Callable[[Bol], bool], assembler:Callable[[SimpleNamespace], list[str]], register:bool = True):
         self.name = name
         self.schema = schema
         self.assembler = assembler
@@ -142,10 +166,10 @@ class Taal(Numeric):
     '''
     A class representing a taal. Ex. Teental, Rupaak, etc.
     '''
-    def __init__(self, beats:int, taali:list[int] = [], khali:list[int] = [], name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):
+    def __init__(self, beats:int, taali:Union[list[int], None] = None, khali:Union[list[int], None] = None, name:Union[str, None] = None, theka:Union[str, None] = None, register:bool = True):
         self.beats = beats
-        self.taali = taali
-        self.khali = khali
+        self.taali = taali if taali is not None else []
+        self.khali = khali if khali is not None else []
         if not name:
             self.id = str(beats)
         else:
@@ -195,7 +219,7 @@ class SpeedClasses:
     '''
     A class representing a Speed class
     '''
-    def __init__(self, inClassCheck: Callable[[int], [bool]], randomGenerate:Callable[[],[int]], name:str, register:bool = True):
+    def __init__(self, inClassCheck: Callable[[int], bool], randomGenerate:Callable[[], int], name:str, register:bool = True):
         self.check = inClassCheck
         self.generator = randomGenerate
         self.id = name
@@ -236,20 +260,53 @@ class Notation(ABC):
 
     @classmethod
     @abstractmethod
-    def toString(self, bol:Bol):
+    def toString(cls, bol:Bol) -> str:
         ...
 
     @classmethod
     def display(cls, bol:Bol, fileName:str):
-        print(Notation.toString(bol), file = fileName)
+        with open(fileName, "w", encoding="utf-8") as outFile:
+            outFile.write(cls.toString(bol))
 
-#TODO
 class Bhatkande(Notation):
-    pass
+    @classmethod
+    def toString(cls, bol:Bol) -> str:
+        lines = []
+        for beat in bol.beats:
+            marker = " "
+            if beat.saam:
+                marker = "S"
+            elif beat.clap == 1:
+                marker = "T"
+            elif beat.clap == -1:
+                marker = "K"
 
-#TODO
+            phraseText = " ".join([
+                phrase.ids[0] if abs(syllables - phrase.syllables) < 1e-9 else f"{phrase.ids[0]}({syllables:g})"
+                for phrase, syllables in beat.phrases
+            ])
+            lines.append(f"{beat.number:>4} [{marker}] | {phraseText}")
+        return "\n".join(lines)
+
 class Paluskar(Notation):
-    pass
+    @classmethod
+    def toString(cls, bol:Bol) -> str:
+        lines = []
+        for beat in bol.beats:
+            marker = "-"
+            if beat.saam:
+                marker = "+"
+            elif beat.clap == 1:
+                marker = "x"
+            elif beat.clap == -1:
+                marker = "0"
+
+            phraseText = " ".join([
+                phrase.ids[0] if abs(syllables - phrase.syllables) < 1e-9 else f"{phrase.ids[0]}[{syllables:g}]"
+                for phrase, syllables in beat.phrases
+            ])
+            lines.append(f"{marker} {beat.number:>3}: {phraseText}")
+        return "\n".join(lines)
 
 class Bol():
     '''
@@ -305,13 +362,20 @@ class Beat():
         self.phrases = phrases
 
     def play(self):
+        canUsePydubBackend = hasPydubBackend()
         for index in range(len(self.soundFiles)):
-            s = AudioSegment.from_file(self.soundFiles[index])
-            if self.multipliers[index] >= 1:
-                s = s.speedup(self.multipliers[index])
+            if canUsePydubBackend:
+                s = AudioSegment.from_file(self.soundFiles[index])
+                if self.multipliers[index] >= 1:
+                    s = s.speedup(self.multipliers[index])
+                else:
+                    s = ae.speed_down(s, self.multipliers[index])
+                pydubplay(s)
             else:
-                s = ae.speed_down(s, self.multipliers[index])
-            pydubplay(s)
+                # Fallback for environments without ffmpeg/ffprobe: only exact-speed playback is safe.
+                if abs(self.multipliers[index] - 1.0) > 1e-9:
+                    raise RuntimeError("ffmpeg/ffprobe are required for tempo-adjusted playback. Install ffmpeg and ensure it is on PATH.")
+                playsound(self.soundFiles[index])
 
 
 
@@ -343,11 +407,15 @@ class Fetcher:
         #For both of the following cases, componentIDs must also be specified
         elif specifier == "composite": #A composite sound consists of two sounds played at the same time. Ex. dha = ge + na
             assert componentIDs, "Need to specify component ids for composite phrases."
-            newSound = Sound(id, Sound.merge(Sound.sounds.get(c) for c in componentIDs)) #Create a new sound by using the Sound class' static merge function
+            sourceSounds = [Sound.sounds.get(c) for c in componentIDs]
+            assert all(sourceSounds), "Unknown component sound id passed for composite sound synthesis."
+            newSound = Sound(id, Sound.merge(sourceSounds)) #Create a new sound by using the Sound class' static merge function
             return newSound #The new sound will be stored in Sound.sounds, but we return it anyway for convenience
         elif specifier == "sequential": #A sequential sound consists of a sequence of sounds played in succession Ex. terekite = te, re, ki, te
             assert componentIDs, "Need to specify component ids for sequential phrases."
-            newSound = Sound(id, Sound.join(Sound.sounds.get(c) for c in componentIDs)) #Create a new sound by using the Sound class' static join function
+            sourceSounds = [Sound.sounds.get(c) for c in componentIDs]
+            assert all(sourceSounds), "Unknown component sound id passed for sequential sound synthesis."
+            newSound = Sound(id, Sound.join(sourceSounds)) #Create a new sound by using the Sound class' static join function
             return newSound #The new sound will be stored in Sound.sounds, but we return it anyway for convenience
         else: #At this point, the specifier was not one of ["composite", "sequential"] and we do not know what to do
             raise ValueError("Invalid specifier passed.")
@@ -375,7 +443,12 @@ class Sound():
     '''
     def __init__(self, id, recording):
         self.id = id #Store the identifier
-        self.recording = "recordings/" + recording #Store the recording
+        if os.path.isabs(recording):
+            self.recording = recording
+        elif recording.startswith("recordings/") or recording.startswith("recordings\\"):
+            self.recording = recording
+        else:
+            self.recording = os.path.join("recordings", recording)
         Sound.sounds.update({id: self}) #We have created a new sound!
 
     def play(self):
@@ -402,7 +475,7 @@ class Sound():
             mergedSound = mergedSound.overlay(AudioSegment.from_file(sounds[i].recording), position = 0)
             fileName += "+" + sounds[i].id
         fileName = "recordings/" + fileName + ".m4a"
-        handler = mergedSound.export(fileName, format = "ipod")
+        mergedSound.export(fileName, format = "ipod")
         return fileName
 
 
@@ -424,7 +497,7 @@ class Sound():
             mergedSound = mergedSound + AudioSegment.from_file(sounds[i].recording)
             fileName += sounds[i].id
         fileName = "recordings/" + fileName + ".m4a"
-        handler = mergedSound.export(fileName, format = "ipod")
+        mergedSound.export(fileName, format = "ipod")
         return fileName
 
 class Phrase():
@@ -487,7 +560,7 @@ class Phrase():
         component2 = Phrase.registeredPhrases[componentIDs[1]]
         assert component1.position != component2.position and component1.position in ["baiyan", "daiyan"] and component2.position in ["baiyan", "daiyan"], "Components must be played on different drums and cannot be composite components themselves. For components played in close succession on the same drum, see registerSequentialPhrase()"
 
-        x = Phrase(mainID = mainID, syllables = max(component1.syllables, component2.syllables), position = "both drums", info = "Play the following two phrases simultaneously: \n1)" + component1.info + "\n2)" + component2.info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "composite", componentIDs), register = register)
+        x = Phrase(mainID = mainID, syllables = max(component1.syllables, component2.syllables), position = "both drums", info = "Play the following two phrases simultaneously: \n1)" + component1.info + "\n2)" + component2.info, aliases = aliases, soundBite = soundBite if soundBite != "Fetch" else Fetcher.fetch(mainID, "composite", componentIDs), register = register)
         if register:
             assert mainID in Phrase.registeredPhrases, "Registering composite phrase failed."
         return x
@@ -515,7 +588,7 @@ class Phrase():
             syllables += Phrase.registeredPhrases[componentIDs[i]].syllables
             info += "\n" + str(i) + ")" + Phrase.registeredPhrases[componentIDs[i]].info
 
-        x = Phrase(mainID = mainID, syllables = syllables, position = position, info = info, aliases = aliases, soundBite = soundBite if soundBite else fetch(mainID, "sequential", componentIDs), register = register)
+        x = Phrase(mainID = mainID, syllables = syllables, position = position, info = info, aliases = aliases, soundBite = soundBite if soundBite != "Fetch" else Fetcher.fetch(mainID, "sequential", componentIDs), register = register)
         if register:
             assert mainID in Phrase.registeredPhrases, "Registering sequential phrase failed."
         return x
@@ -524,7 +597,32 @@ class CompositionGenerator():
     #Class that provides a static method to generate a composition
     #Uses standard BolParser symbols (user can modify later)
     @classmethod
-    def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token: str):
+    def _generateWithLocalModel(cls, prompt:str, model:str, endpoint:str, timeoutSeconds:int = 120) -> str:
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+        }
+        request = urlrequest.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        with urlrequest.urlopen(request, timeout=timeoutSeconds) as response:
+            body = response.read().decode("utf-8")
+            parsed = json.loads(body)
+
+        if "response" in parsed and isinstance(parsed["response"], str):
+            return parsed["response"]
+        if "message" in parsed and isinstance(parsed["message"], dict) and isinstance(parsed["message"].get("content"), str):
+            return parsed["message"]["content"]
+
+        raise ValueError("Local model response did not include a generated text field.")
+
+    @classmethod
+    def generate(cls, type:str, taal:Union[str, int], speedClass: str, jati: Union[str, int], school: str, token:Union[str, None] = None, localModel:Union[str, None] = None, localEndpoint:Union[str, None] = None, useLocal:bool = False):
         '''
         A method that generates a composition given parameters using the Llama model available on HuggingFace
 
@@ -535,6 +633,9 @@ class CompositionGenerator():
             jati(Union[str, int]): The jati of the composition, or the number of syllables per beat. Ex. Chatusra or 4, Tisra or 3
             school(str): The style of playing. Ex. Lucknow, Delhi, Ajrada, Punjabi, etc.
             token(str): The HuggingFace token for the user's access to Llama.
+            localModel(str or None): Local model name, e.g. llama3.1:8b for Ollama
+            localEndpoint(str or None): HTTP endpoint for local generation API
+            useLocal(bool): Whether to force local model usage
         '''
         warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
         warnings.warn("Execution time might be excessive depending on your hardware.")
@@ -567,6 +668,26 @@ class CompositionGenerator():
         symbolPrompt = "Each beat should be separated with the character '|'. An example of the expected output if the user requests a Kayda of Ektaal, with Chatusra Jati, in the Lucknow Gharana is: \n" + TEMPLATE + "\n A phrase cannot span more than one beat. A phrase can also span exactly one syllable even if it usually spans more than one. In that case, enclose the phrase with parentheses."
         end = "Finally, in addition to following the above rules, the composition should be as authentic and aesthetically pleasing as possible."
         prompt = phraseInfo + mainPrompt + symbolPrompt + end
+
+        requestedLocal = useLocal or os.environ.get("TABALCHI_USE_LOCAL_LLM", "").lower() in ["1", "true", "yes"]
+        canUseHosted = (pipeline is not None and torch is not None)
+        shouldTryLocal = requestedLocal or not canUseHosted
+
+        if shouldTryLocal:
+            chosenLocalModel = localModel or os.environ.get("TABALCHI_LOCAL_MODEL", "llama3.1:8b")
+            chosenLocalEndpoint = localEndpoint or os.environ.get("TABALCHI_LOCAL_ENDPOINT", "http://localhost:11434/api/generate")
+            try:
+                return cls._generateWithLocalModel(prompt, chosenLocalModel, chosenLocalEndpoint)
+            except Exception as localError:
+                if not canUseHosted:
+                    raise RuntimeError("Local LLM generation failed and transformers/torch are unavailable for hosted generation.") from localError
+                warnings.warn("Local LLM generation failed. Falling back to hosted generation path.")
+
+        if pipeline is None:
+            raise ImportError("transformers is required for hosted composition generation. Install with pip install transformers")
+        if torch is None:
+            raise ImportError("torch is required for hosted composition generation in this environment.")
+
         messages = [
             {"role": "user", "content": prompt},
         ]
@@ -589,6 +710,8 @@ class AudioToBolConvertor():
             bolString(str): THe transcription of the audio
         '''
         warnings.warn("This is an experimental feature that may provide incorrect or incomplete results.")
+        if acoustid is None or chromaprint is None:
+            raise ImportError("pyacoustid and pychromaprint are required for audio-to-bol conversion.")
         currentSyllableDuration = 60.0/(speed*jati)
         desiredSyllableDuration = 0.25
         sound = AudioSegment.from_file(recording)
@@ -597,14 +720,16 @@ class AudioToBolConvertor():
         elif currentSyllableDuration < desiredSyllableDuration:
             sound = ae.speed_down(sound, currentSyllableDuration / desiredSyllableDuration)
         #Now, parse the audio for every 0.25 second snippet, comparing it with known recordings
-        recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases}
-        bolString = ""
+        recordings = {val.soundBite.recording: key for key, val in Phrase.registeredPhrases.items()}
+        bolTokens = []
         marker = 0
         while (marker < sound.duration_seconds * 1000):
-            add = AudiotoBolConvertor.getMostSimilarSound(snippet = sound[marker: marker + 250], source = recordings)
+            add = AudioToBolConvertor.getMostSimilarSound(snippet = sound[marker: marker + 250], source = recordings)
+            if add is None:
+                break
             marker += Phrase.registeredPhrases[add].syllables * 250
-            bolString += add
-        return bolString
+            bolTokens.append(add)
+        return " ".join(bolTokens)
 
     @classmethod
     def getMostSimilarSound(cls, snippet, source:Dict[str, str]) -> str:
@@ -615,35 +740,42 @@ class AudioToBolConvertor():
             snippet: The audio snippet to identify/transcribe
             from(dict<str, str>): The known vocabulary to choose from
         '''
-        snippet.export("snippetTemp", format = "m4a")
-        _, encoded = acoustid.fingerprint_file("snippetTemp")
-        fingerprint, _ = chromaprint.decode_fingerprint(
-            encoded
-        )
-        references = {}
-        for key, val in source.items():
-            _, e = acoustid.fingerprint_file(key)
-            f, _ = chromaprint.decode_fingerprint(
-                e
-            )
-            references[val] = f
+        tempSnippetPath = "snippetTemp.m4a"
+        snippet.export(tempSnippetPath, format = "m4a")
+        try:
+            _, encoded = acoustid.fingerprint_file(tempSnippetPath)
+            fingerprint, _ = chromaprint.decode_fingerprint(encoded)
+            references = {}
+            for key, val in source.items():
+                _, e = acoustid.fingerprint_file(key)
+                f, _ = chromaprint.decode_fingerprint(e)
+                references[val] = f
 
-        from operator import xor
-        maxSimilarity = 0
-        mostSimilarPhrase = None
-        for phrase, print in references.items():
-            max_hamming_weight = 32 * min(len(fingerprint), len(print))
-            hamming_weight = sum(
-                sum(
-                    c == "1"
-                    for c in bin(xor(fingerprint[i], print[i]))
+            from operator import xor
+            minimumDistance = float("inf")
+            mostSimilarPhrase = None
+            for phrase, referencePrint in references.items():
+                compareLength = min(len(fingerprint), len(referencePrint))
+                maxHammingWeight = 32 * compareLength
+                if maxHammingWeight == 0:
+                    continue
+
+                hammingWeight = sum(
+                    sum(
+                        c == "1"
+                        for c in bin(xor(fingerprint[i], referencePrint[i]))
+                    )
+                    for i in range(compareLength)
                 )
-                for i in range(min(len(fingerprint), len(print)))
-            )
-            if (hamming_weight / max_hamming_weight) > maxSimilarity:
-                maxSimilarity = hamming_weight / max_hamming_weight
-                mostSimilarPhrase = phrase
-        return mostSimilarPhrase
+                normalizedDistance = hammingWeight / maxHammingWeight
+                if normalizedDistance < minimumDistance:
+                    minimumDistance = normalizedDistance
+                    mostSimilarPhrase = phrase
+
+            return mostSimilarPhrase
+        finally:
+            if os.path.exists(tempSnippetPath):
+                os.remove(tempSnippetPath)
 
 
 expansionarySchema = {
@@ -703,7 +835,7 @@ fixedSchema = {
 def fixedAssembler(tablaFile:SimpleNamespace) -> list[str]:
     result = []
     result.append(tablaFile.content)
-    if hasattr(tablaFile, tihai):
+    if hasattr(tablaFile, "tihai"):
         result.append(tablaFile.tihai)
 
     return result
@@ -748,10 +880,11 @@ def regularFixedValidityCheck(bol:Bol) -> bool:
 
 
 def regularChakradarValidityCheck(bol:Bol) -> bool:
-    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-    k, m = divmod(len(phraseList), 3)
-    cycles = (phraseList[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(3))
-    return len(phraseList) % 3 and set(cycles[0]) == set(cycles[1]) and set(cycles[1]) == set(cycles[2])
+    phraseList = [phrase for beat in bol.beats for phrase, _ in beat.phrases]
+    if len(phraseList) == 0 or len(phraseList) % 3 != 0:
+        return False
+    chunk = len(phraseList) // 3
+    return phraseList[:chunk] == phraseList[chunk:2 * chunk] == phraseList[2 * chunk:]
 
 def specialChakradarValidityCheck(bol:Bol) -> bool:
     return regularChakradarValidityCheck(bol) and all([beat.saam for beat in bol.markedBeats])
@@ -760,12 +893,12 @@ def regularTihaiValidityCheck(bol:Bol) -> bool:
     return regularChakradarValidityCheck(bol)
 
 def bedamTihaiValidityCheck(bol:Bol) -> bool:
-    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-    return regularTihaiValidityCheck(bol) and all(["S" not in phrase.ids for phrase in phraseList])
+    phraseList = [phrase for beat in bol.beats for phrase, _ in beat.phrases]
+    return regularTihaiValidityCheck(bol) and all(["s" not in phrase.ids for phrase in phraseList])
 
 def damdarTihaiValidityCheck(bol:Bol) -> bool:
-    phraseList = [phrase for phrase in bol.beats.phrases.keys()]
-    return regularTihaiValidityCheck(bol) and any(["S" in phrase.ids for phrase in phraseList])
+    phraseList = [phrase for beat in bol.beats for phrase, _ in beat.phrases]
+    return regularTihaiValidityCheck(bol) and any(["s" in phrase.ids for phrase in phraseList])
 
 def toRecursiveNamespace(d):
     x = SimpleNamespace()
@@ -821,11 +954,15 @@ class BolParser():
     </table>
     '''
 
-    #Download recordings folder if it does not exist already
+    #Download recordings folder only if local recordings are unavailable
     destination = Path.cwd() / "recordings"
     destination.mkdir(exist_ok=True, parents=True)
-    fs = fsspec.filesystem("github", org="shreyanmitra", repo="Tabalchi")
-    fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
+    if not any(destination.iterdir()):
+        try:
+            fs = fsspec.filesystem("github", org="shreyanmitra", repo="Tabalchi")
+            fs.get(fs.ls("recordings/"), destination.as_posix(), recursive=True)
+        except Exception:
+            warnings.warn("Could not fetch recordings from GitHub. Ensure recordings/ exists locally.")
 
     #Register bhari-khali mappings, basic vocab, composite phrases, compositions, jatis, sequences, speeds, and taals
     vocabInitializer = [('ge', 1, 'baiyan', 'Use the index and middle fingers to strike the narrow part of the maidan above the shyahi', ['ga', 'ghet', 'gat'], Sound("ge", "Ge.m4a"), True),
@@ -864,9 +1001,9 @@ class BolParser():
     for element in sequentialInitializer:
         Phrase.createSequentialPhrase(*element)
 
-    speedInitializer = [(lambda x: x <=60, random.randint(0, 60), "Vilambit"),
-    (lambda x: x>60 and x<=120, random.randint(60,120), "Madhya"),
-    (lambda x: x>120, random.randint(120,300), "Drut")
+    speedInitializer = [(lambda x: x <= 60, lambda: random.randint(1, 60), "Vilambit"),
+    (lambda x: x > 60 and x <= 120, lambda: random.randint(60, 120), "Madhya"),
+    (lambda x: x > 120, lambda: random.randint(120, 300), "Drut")
     ]
     for element in speedInitializer:
         SpeedClasses(*element)
@@ -981,6 +1118,7 @@ class BolParser():
     jatiInitializer = [{'syllables':3, 'name':'Tisra'},
     {'syllables':4, 'name':'Chatusra'},
     {'syllables':5, 'name':'Khanda'},
+    {'syllables':7, 'name':'Misra'},
     {'syllables':7, 'name':'Mishra'},
     {'syllables':9, 'name':'Sankeerna'}]
 
@@ -1016,19 +1154,43 @@ class BolParser():
 
     @classmethod
     def toKhali(cls, bolString:str) -> str:
-        result = bolString
-        for key, val in BolParser.bhariKhaliMappings.items():
-            for id in key.ids:
-                result = result.replace(id, val.ids[0])
-        return result
+        tokenMap = {}
+        for keyPhrase, valuePhrase in BolParser.bhariKhaliMappings.items():
+            for phraseId in keyPhrase.ids:
+                tokenMap[phraseId.lower()] = valuePhrase.ids[0]
+
+        pattern = re.compile(r"[A-Za-z]+(?:-[A-Za-z]+)*")
+
+        def replaceToken(match):
+            token = match.group(0)
+            parts = token.split(BolParser.PHRASE_SPLITTER)
+            replaced = [tokenMap.get(part.lower(), part.lower()) for part in parts]
+            result = BolParser.PHRASE_SPLITTER.join(replaced)
+            if token.isupper():
+                return result.upper()
+            return result
+
+        return pattern.sub(replaceToken, bolString)
 
 
     @classmethod
     def parse(cls, file) -> Bol:
-        assert ".tabla" in file, "Please pass a valid .tabla file"
+        assert str(file).endswith(".tabla"), "Please pass a valid .tabla file"
         with open(file, 'r') as composition:
             rawData = json.load(composition)
             data = SimpleNamespace(**rawData)
+
+        def resolveJatiSpecifier(specifier) -> Jati:
+            if isinstance(specifier, Jati):
+                return specifier
+            if isinstance(specifier, (int, float)):
+                assert specifier > 0 and float(specifier).is_integer(), "Jati must be a positive integer when provided numerically."
+                return Jati(int(specifier), register = False)
+            if isinstance(specifier, str):
+                normalized = {"Mishra": "Misra", "Misra": "Misra"}.get(specifier, specifier)
+                return Jati.registeredJatis[normalized]
+            raise ValueError("Unsupported jati specifier: " + str(specifier))
+
         try:
             compositionType = CompositionType.registeredTypes[data.type]
             taal = Taal.registeredTaals[data.taal]
@@ -1040,15 +1202,21 @@ class BolParser():
                 speed = Speed(data.speed)
             jati = {}
             if isinstance(data.jati, dict):
-                for key, val in data.speed.items():
-                    jati.update({BeatRange.fromString(key): Jati.registeredJatis[val]})
+                for key, val in data.jati.items():
+                    jati.update({BeatRange.fromString(key): resolveJatiSpecifier(val)})
             elif isinstance(data.jati, str) and data.jati != "Infer":
-                jati = Jati.registeredJatis[data.jati]
+                jati = resolveJatiSpecifier(data.jati)
+            elif isinstance(data.jati, (int, float)):
+                jati = resolveJatiSpecifier(data.jati)
             else:
                 jati = data.jati
             playingStyle = data.playingStyle
             assert data.display in Notation.VALID_NOTATIONS
-            display = eval(data.display)
+            displayMap = {
+                "Bhatkande": Bhatkande,
+                "Paluskar": Paluskar,
+            }
+            display = displayMap[data.display]
             assert compositionType.preCheck(data.components)
         except Exception:
             raise ValueError("Something is wrong with the configuration of your .tabla file")
@@ -1078,7 +1246,7 @@ class BolParser():
             for char in beat:
                 if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping = True
-                if char == BolParser.PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_CLOSE:
                     inGrouping =  False
 
                 if char == " " and inGrouping:
@@ -1121,7 +1289,7 @@ class BolParser():
             for char in beat:
                 if char == BolParser.PHRASE_JOINER_OPEN:
                     inGrouping = True
-                if char == BolParser.PHRASE_JOINER_OPEN:
+                if char == BolParser.PHRASE_JOINER_CLOSE:
                     inGrouping =  False
 
                 if char == " " and inGrouping:
@@ -1129,7 +1297,7 @@ class BolParser():
                 else:
                     newStr += char
 
-            intermediate = newStr.split(" ")
+            intermediate = newStr.split()
             markers = []
             rawPhrases = []
             syllableCount = []
@@ -1140,7 +1308,9 @@ class BolParser():
                         markers.append(1)
                     else:
                         markers.append(0)
-                    correspondingPhrase = Phrase.registeredPhrases[elem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "")]
+                    tokenId = elem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "").lower()
+                    assert tokenId in Phrase.registeredPhrases, "Unknown phrase token: " + str(tokenId)
+                    correspondingPhrase = Phrase.registeredPhrases[tokenId]
                     rawPhrases.append(correspondingPhrase)
                     if elem.count(BolParser.PHRASE_SPLITTER) != 0:
                         syllableCount.append(elem.count(BolParser.PHRASE_SPLITTER) + 1)
@@ -1153,7 +1323,9 @@ class BolParser():
                             markers.append(1)
                         else:
                             markers.append(0)
-                        correspondingPhrase = Phrase.registeredPhrases[subElem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "")]
+                        tokenId = subElem.replace(BolParser.PHRASE_SPLITTER, "").replace(BolParser.MARKER, "").lower()
+                        assert tokenId in Phrase.registeredPhrases, "Unknown phrase token: " + str(tokenId)
+                        correspondingPhrase = Phrase.registeredPhrases[tokenId]
                         rawPhrases.append(correspondingPhrase)
                         if subElem.count(BolParser.PHRASE_SPLITTER) != 0:
                             syllableCount.append((subElem.count(BolParser.PHRASE_SPLITTER) + 1) / len(deconstructed))
@@ -1162,9 +1334,10 @@ class BolParser():
 
             assert jati == "Infer" or sum(syllableCount) == getJati(i + 1), "Provided jati for certain beats does not match actual jati at beat " + str(i) + ". User-specified jati: " + str(getJati(i+1)) + " syllables per beat, while actual jati seems to be " + str(sum(syllableCount)) + " syllables per beat. The bols in the beat are: " + beat + "."
             taaliKhaliOrNone = 0
-            if (i + 1)%taal.beats in taal.taali:
+            beatWithinCycle = (i % taal.beats) + 1
+            if beatWithinCycle in taal.taali:
                 taaliKhaliOrNone = 1
-            elif (i + 1)%taal.beats in taal.khali:
+            elif beatWithinCycle in taal.khali:
                 taaliKhaliOrNone = -1
             saam = False
             if i%taal.beats == 0:
@@ -1175,8 +1348,8 @@ class BolParser():
                 finalizedBeats.append(Beat(i + 1, taaliKhaliOrNone, saam, phraseSyllableMapping, beatSpeed, markers))
             except Exception as e:
                 raise AssertionError("Beat could not be initialized.\nDebug Info\n__________\n\nBeat Number: " + str(i + 1) + "\nBeat Speed: " + str(beatSpeed) + "\nMarkers: " + str(markers) + "\nPhrase-Syllable Mapping: " + str(phraseSyllableMapping) + "\nIntermediateString: " + str(intermediate))
-        parsedResult = Bol(finalizedBeats)
-        compositionType.mainCheck(parsedResult)
+        parsedResult = Bol(finalizedBeats, notationClass = display)
+        assert compositionType.mainCheck(parsedResult), "The parsed composition does not satisfy the selected composition type's validation rules."
         return parsedResult
 
 

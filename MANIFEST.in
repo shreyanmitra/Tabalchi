@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+include template.tabla
+include index.html
+recursive-include recordings *.m4a

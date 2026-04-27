@@ -41,7 +41,23 @@ First, make sure required dependencies are in your system as follows:
 sudo apt install ffmpeg acoustid-fingerprinter
 ```
 
-To play a given .tabla file, simply write the following Python code. You will need to install the ``Tabla`` library through ``pip install Tabla``
+On Windows, install `ffmpeg` and ensure both `ffmpeg` and `ffprobe` are on your PATH if you need tempo-adjusted playback.
+
+To play a given .tabla file, install the package with:
+
+```bash
+pip install Tabalchi
+```
+
+Optional extras:
+
+```bash
+pip install "Tabalchi[ml]"              # hosted/local LLM generation dependencies
+pip install "Tabalchi[transcription]"   # audio-to-bol transcription dependencies
+pip install "Tabalchi[full]"            # all optional features
+```
+
+Then use the following Python code:
 
 ```python
 from Tabalchi import *
@@ -55,6 +71,104 @@ To view the entire composition with the notation of your choice (specified in th
 from Tabalchi import *
 parser = BolParser()
 parser.parse("yourBol.tabla").write("yourOutputFile.txt/pdf", Bhatkande)
+```
+
+## Programmatic Python Usage (Copy/Paste)
+
+Use these exact scripts when integrating Tabalchi into Python applications.
+
+### 1) Parse once, then play and export notation
+
+```python
+from Tabalchi import BolParser, Bhatkande, Paluskar
+
+# Replace with your .tabla path
+tabla_path = "template.tabla"
+
+parser = BolParser()
+bol = parser.parse(tabla_path)
+
+# Play audio
+bol.play()
+
+# Export both notation styles
+bol.write("output_bhatkande.txt", Bhatkande)
+bol.write("output_paluskar.txt", Paluskar)
+
+print("Done: played and exported notation files.")
+```
+
+### 2) Validate parser behavior and preview inferred khali
+
+```python
+import json
+from pathlib import Path
+from Tabalchi.main import BolParser
+
+tabla_path = Path("template.tabla")
+data = json.loads(tabla_path.read_text(encoding="utf-8"))
+
+main_theme = data["components"]["mainTheme"]
+khali_raw = str(main_theme.get("khali", "")).strip().lower()
+
+if khali_raw == "infer":
+  khali_preview = BolParser.toKhali(main_theme.get("bhari", ""))
+else:
+  khali_preview = main_theme.get("khali", "")
+
+print("Khali preview:")
+print(khali_preview)
+```
+
+### 3) Generate a composition (local model first)
+
+```python
+from Tabalchi import CompositionGenerator
+
+result = CompositionGenerator.generate(
+  type="Kayda",
+  taal="Ektaal",
+  speedClass="Madhya",
+  jati="Chatusra",
+  school="Lucknow",
+  useLocal=True,  # tries local endpoint/model first
+  localModel="llama3.1:8b",
+  localEndpoint="http://localhost:11434/api/generate",
+)
+
+print(result)
+```
+
+If you only want hosted generation, set `useLocal=False` and pass your HuggingFace token as `token="..."`.
+
+## GitHub Pages Deployment
+
+This repository includes a workflow at `.github/workflows/pages.yml` that deploys the UI from `index.html` to GitHub Pages.
+
+1. Push to `main` or `master` (or run the workflow manually from Actions).
+2. In repository settings, enable **Pages** and choose **GitHub Actions** as the source.
+3. Your UI will be published automatically.
+
+## PyPI Packaging and Publishing
+
+This repository is configured for PyPI publishing with:
+
+- `pyproject.toml` (PEP 517 build backend)
+- `setup.py` package metadata
+- `.github/workflows/publish.yml` release workflow
+
+To publish from GitHub Actions:
+
+1. Add a repository secret named `PYPI_API_TOKEN`.
+2. Create a GitHub Release.
+3. The publish workflow builds, validates (`twine check`), and uploads to PyPI.
+
+To build locally:
+
+```bash
+python -m pip install --upgrade build twine
+python -m build
+python -m twine check dist/*
 ```
 The parser above is the standard BolParser provided by the library. You can create your own parser by doing something like:
 
@@ -114,8 +228,8 @@ We now give brief descriptions of the main classes you may find yourself using i
 6. **SpeedClasses**: Categorizes speed into classes based on beats per minute with methods for checking and generating random speeds.
 7. **Speed**: Represents a specific tempo, either by beats per minute or by a named speed class.
 8. **Notation**: An abstract base class for converting a Bol into a string format, with a method for displaying the notation.
-9. **Bhatkande**: Intended to handle Bhatkande notation (without current implementation).
-10. **Paluskar**: Intended to handle Paluskar notation (without current implementation).
+9. **Bhatkande**: Converts a parsed Bol into Bhatkande-style text output.
+10. **Paluskar**: Converts a parsed Bol into Paluskar-style text output.
 11. **Bol**: Represents a collection of beats with methods for playback and writing to a file using a specified notation.
 12. **Beat**: Represents a collection of phrases within a beat, managing playback and phrase duration calculations.
 13. **Fetcher**: Provides static methods for fetching sound data associated with phrases or adding new audio recordings.
